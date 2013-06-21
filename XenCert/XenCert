@@ -40,7 +40,7 @@ def main():
 	PrintToLog(arg)
 	PrintToLog(' ')
     PrintToLog('\n\n')
-    (options, args) = XenCertCommon.parse_args("%prog 2.0, build 4. \nCitrix Systems, Storage Certification.\n")
+    (options, args) = XenCertCommon.parse_args("%prog 2.5. \nCitrix Systems, Storage Certification.\n")
    
     if args:
         Print("Unknown arguments found: %s" % args)
@@ -60,7 +60,7 @@ def main():
     # perform the certification process
     handler = XenCertCommon.GetStorageHandler(g_storage_conf)
     build = commands.getoutput('cat /etc/xensource-inventory | grep BUILD_NUMBER')
-    Print("********************** Welcome to XenCert 2.0 %s *****************"%build)  
+    Print("********************** Welcome to XenCert 2.5 %s *****************"%build)
     Print("Test start time: %s" % time.asctime(time.localtime()))
     start = datetime.now()
     Print("***********************************************************************")  
