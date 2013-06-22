@@ -19,10 +19,11 @@ XENCERT_SRC := $(RPM_SOURCESDIR)/xencert-$(XENCERT_VERSION).tar.gz
 XENCERT_SRPM := xencert-$(XENCERT_VERSION)-$(XENCERT_RELEASE).src.rpm
 XENCERT_STAMP := $(MY_OBJ_DIR)/.rpmbuild.stamp
 REPO := $(call git_loc,xencert)
+SUPPORT_PACK := $(MY_OUTPUT_DIR)/xencert-supp-pack
 BUILD := $(BUILD_NUMBER)
 
 .PHONY: build
-build: sources $(XENCERT_STAMP)
+build: sources $(XENCERT_STAMP) $(SUPPORT_PACK)
 
 $(MY_SOURCES)/MANIFEST: $(RPM_SRPMSDIR)/$(XENCERT_SRPM) $(MY_SOURCES_DIRSTAMP) $(RPM_BUILD_COOKIE)
 	rm -f $@
@@ -50,10 +51,7 @@ $(RPM_SRPMSDIR)/$(XENCERT_SRPM): $(RPM_DIRECTORIES) $(RPM_SPECSDIR)/$(XENCERT_SP
 
 $(XENCERT_STAMP): $(RPM_SRPMSDIR)/$(XENCERT_SRPM)
 	$(RPMBUILD) --rebuild --target $(DOMAIN0_ARCH_OPTIMIZED) $(RPM_SRPMSDIR)/$(XENCERT_SRPM)
-	mkdir -p $(MY_MAIN_PACKAGES)
-	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xencert-*.rpm $(MY_MAIN_PACKAGES)
 	touch $@
 
-# FIXME Unsure of this
-#$(SUPPORT_PACK): $(XENCERT_STAMP)
-#	python setup.py --out $(dir $@) --pdn $(PRODUCT_BRAND) --pdv $(PRODUCT_VERSION) --bld $(BUILD) --spn "xencert-supp-pack" --spd "XenCert" --rxv "6.2.0" $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/sm-xencert-*.i686.rpm
+$(SUPPORT_PACK): $(XENCERT_STAMP)
+	python setup.py --out $(dir $@) --pdn $(PRODUCT_BRAND) --pdv $(PRODUCT_VERSION) --bld $(BUILD) --spn $(notdir $@) --spd "XenCert" --rxv "6.2.0" $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xencert-$(XENCERT_VERSION)*.i686.rpm
