@@ -57,10 +57,10 @@ sampled_portlist = portList
 
 if op == 'block':
     sampled_portlist = random.sample(portList, random.randint(1, len(portList) - 1))
-    XenCertPrint("Blocking ports: %s" % sampled_portlist)
+    XenCertPrint("Blocking ports: %s" % sampled_portlist) 
     retVal=ip + ':' + username + ':' + password + ':'
     
-    for port in sampled_portlist::
+for port in sampled_portlist:
     if op == 'block':
         blockUnblockPort(True, ip, username, password, port)
         retVal += port
