@@ -60,7 +60,7 @@ if op == 'block':
     XenCertPrint("Blocking ports: %s" % sampled_portlist)
     retVal=ip + ':' + username + ':' + password + ':'
     
-    for port in sampled_portlist::
+for port in sampled_portlist:
     if op == 'block':
         blockUnblockPort(True, ip, username, password, port)
         retVal += port
