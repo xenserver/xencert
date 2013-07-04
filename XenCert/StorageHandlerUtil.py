@@ -790,7 +790,7 @@ def get_path_status(scsi_id, onlyActive = False):
 
         # Extract hbtl, dm and path status from the multipath topology output
         # e.g. "| |- 0:0:0:0 sda 8:0   active ready running"
-        pat = re.compile(r'(\d:\d:\d:\d.*)$')
+        pat = re.compile(r'(\d+:\d+:\d+:\d+.*)$')
 
         for node in listPaths:
             XenCertPrint("Looking at node: %s" % node)
