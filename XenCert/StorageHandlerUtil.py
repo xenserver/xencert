@@ -127,8 +127,21 @@ def _init_adapters():
     adapter = {}
     for host in ids:
         try:
-            targetIQN = iscsilib.get_targetIQN(host)
-            (addr, port) = iscsilib.get_targetIP_and_port(host)
+            # For Backward compatibility 
+            if hasattr(iscsilib, 'get_targetIQN'):
+                targetIQN = iscsilib.get_targetIQN(host)
+            else: 
+                targetIQN = util.get_single_entry(glob.glob(\
+                   '/sys/class/iscsi_host/host%s/device/session*/iscsi_session*/targetname' % host)[0])
+
+            if hasattr(iscsilib, 'get_targetIP_and_port'):
+                (addr, port) = iscsilib.get_targetIP_and_port(host)
+            else:
+                addr = util.get_single_entry(glob.glob(\
+                   '/sys/class/iscsi_host/host%s/device/session*/connection*/iscsi_connection*/persistent_address' % host)[0])
+                port = util.get_single_entry(glob.glob(\
+                   '/sys/class/iscsi_host/host%s/device/session*/connection*/iscsi_connection*/persistent_port' % host)[0])
+
             entry = "%s:%s" % (addr,port)
             adapter[entry] = host
         except Exception, e:
@@ -790,7 +803,7 @@ def get_path_status(scsi_id, onlyActive = False):
 
         # Extract hbtl, dm and path status from the multipath topology output
         # e.g. "| |- 0:0:0:0 sda 8:0   active ready running"
-        pat = re.compile(r'(\d:\d:\d:\d.*)$')
+        pat = re.compile(r'(\d+:\d+:\d+:\d+.*)$')
 
         for node in listPaths:
             XenCertPrint("Looking at node: %s" % node)

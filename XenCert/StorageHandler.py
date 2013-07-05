@@ -320,9 +320,16 @@ class StorageHandler:
                         raise Exception("Failed to block paths.")
                     
                     XenCertPrint("Dev Path Config = '%s', no of Blocked switch Paths = '%s'" % (self.listPathConfig, self.noOfPaths))
-                    #Calculate the number of devices to be found after the path block
-                    devicesToFail = (len(self.listPathConfig)/self.noOfTotalPaths) * self.noOfPaths
-                    XenCertPrint("Expected devices to fail: %s" % devicesToFail)
+
+                    # Fail path calculation needs to be done only in case of hba SRs
+                    if "blockunblockhbapaths" in \
+                            self.storage_conf['pathHandlerUtil'].split('/')[-1]:
+                        #Calculate the number of devices to be found after the path block
+                        devicesToFail = (len(self.listPathConfig)/self.noOfTotalPaths) * self.noOfPaths
+                        XenCertPrint("Expected devices to fail: %s" % devicesToFail)
+                    else:
+                        devicesToFail = self.noOfPaths
+
                     s = WaitForFailover(self.session, device_config['SCSIid'], len(self.listPathConfig), devicesToFail)
                     s.start()
                     
