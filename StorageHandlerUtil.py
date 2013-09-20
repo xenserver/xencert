@@ -742,37 +742,14 @@ def parse_config(vendor, product):
 		    returnmap[key] = value
                 returnmap['vendor'] = returnmap['vendor'].replace('"', '')
                 returnmap['product'] = returnmap['product'].replace('"', '')
-                wildCharInProduct = False
-                wildCharInVendor = False
-                if ((returnmap['product'].find('*') != -1) \
-                   or (returnmap['product'].find('|') != -1)\
-                   or (returnmap['product'].find('[') != -1) \
-                   or (returnmap['product'].find('^') != -1)):
-                    wildCharInProduct = True
-                if wildCharInProduct == True:
-                    regexproduct = re.compile(returnmap['product'])
-
-                if ((returnmap['vendor'].find('*') != -1) or (returnmap['vendor'].find('|') != -1)):
-                    wildCharInVendor = True
-                if wildCharInVendor == True:
-                    regexvendor = re.compile(returnmap['vendor'])
-
-                if ((wildCharInProduct == False) and (wildCharInVendor == False)):
-                    if returnmap['vendor'] == vendor and returnmap['product'] == product:
-                        break
-                else:
-                    if ((wildCharInProduct == False) and (wildCharInVendor == True)):
-                        if regexvendor.search(vendor) and returnmap['product'] == product:
-                            break
-                    else:
-                        if ((wildCharInProduct == True) and (wildCharInVendor == False)):
-                            if regexproduct.search(product) and returnmap['vendor'] == vendor:
-                                break
-                        else:
-                            if regexproduct.search(product) and regexvendor.search(vendor):
-                                break
+                productSearch = '^' + returnmap['product'] + '$'
+                vendorSearch = '^' + returnmap['vendor'] + '$'
+                regexvendor = re.compile(vendorSearch)
+                regexproduct = re.compile(productSearch)
+                if ((regexproduct.search(product)) and (regexvendor.search(vendor))):
+                    break
             else:
-    	        skipThis = False 
+                skipThis = False
     except Exception, e:
         XenCertPrint("Failed to get multipath config for vendor: %s and product: %s. Exception: %s" % (vendor, product, str(e)))
         retVal = False
