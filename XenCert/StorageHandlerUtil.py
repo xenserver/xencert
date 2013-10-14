@@ -740,21 +740,16 @@ def parse_config(vendor, product):
 			    value += ' '
 		    value = value.strip()	    
 		    returnmap[key] = value
-		returnmap['vendor'] = returnmap['vendor'].replace('"', '')
-		returnmap['product'] = returnmap['product'].replace('"', '')
-		if returnmap['product'].find('*') != -1:
-		    if returnmap['product'] != '*':
-			regexproduct = re.compile(returnmap['product'])
-			if returnmap['vendor'] == vendor and regexproduct.search(product):
-			    break
-		    else:
-			if returnmap['vendor'] == vendor:
-			    break
-		else:
-		    if returnmap['vendor'] == vendor and returnmap['product'] == product:
-			break
+                returnmap['vendor'] = returnmap['vendor'].replace('"', '')
+                returnmap['product'] = returnmap['product'].replace('"', '')
+                productSearch = '^' + returnmap['product'] + '$'
+                vendorSearch = '^' + returnmap['vendor'] + '$'
+                regexvendor = re.compile(vendorSearch)
+                regexproduct = re.compile(productSearch)
+                if ((regexproduct.search(product)) and (regexvendor.search(vendor))):
+                    break
             else:
-    	        skipThis = False 
+                skipThis = False
     except Exception, e:
         XenCertPrint("Failed to get multipath config for vendor: %s and product: %s. Exception: %s" % (vendor, product, str(e)))
         retVal = False
