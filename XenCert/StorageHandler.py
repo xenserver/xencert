@@ -2204,7 +2204,7 @@ class StorageHandlerISCSI(StorageHandler):
                         scsilist.append(lunToScsi[key][0])
                         HBTL = mapDeviceToHBTL[lunToScsi[key][1]]
                         HBTL_id = HBTL[1] + ":" + HBTL[2] + ":" + HBTL[3] + ":" + HBTL[4]
-                        filepath = '/sys/class/scsi_device/' + HBTL_id + '/device/block:*/size'
+                        filepath = '/sys/class/scsi_device/' + HBTL_id + '/device/block/*/size'
                         XenCertPrint("The filepath is: %s" % filepath)
                         filelist = glob.glob(filepath)
                         XenCertPrint("The HBTL_id is %s. The filelist is: %s" % (HBTL_id, filelist))
@@ -2219,9 +2219,9 @@ class StorageHandlerISCSI(StorageHandler):
                         
                         totalSizeInMiB += size                                                   
                 except Exception, e:
-                    Print("     WARNING: No LUNs reported by portal %s for iqn %s. Exception: %s" % (portal, iqn, str(e)))
-                    XenCertPrint("     WARNING: No LUNs reported by portal %s for iqn %s." % (portal, iqn))
-                    continue
+                    Print("     ERROR: No LUNs reported by portal %s for iqn %s. Exception: %s" % (portal, iqn, str(e)))
+                    XenCertPrint("     ERROR: No LUNs reported by portal %s for iqn %s." % (portal, iqn))
+                    raise Exception("     ERROR: No LUNs reported by portal %s for iqn %s." % (portal, iqn))
                 
                 if iqnToScsiList.has_key(iqn):
                     XenCertPrint("Reference scsilist: %s, current scsilist: %s" % (iqnToScsiList[iqn], scsilist))

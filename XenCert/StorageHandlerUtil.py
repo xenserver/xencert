@@ -847,12 +847,16 @@ def FindDiskDataTestEstimate(device, size):
     XenCertPrint("The command to be fired is: %s" % cmd)
     (rc, stdout, stderr) = util.doexec(cmd)
     if rc != 0:
+ 	XenCertPrint("Diskdatatest utility return Error : %s" % stderr)
 	return 0
-    estimatedTime = int(stdout.split('\n')[len(stdout.split('\n')) - 1])
-    XenCertPrint("Extracted estimated time for writing a 512MB chunk on the device %s as %d" % (device, estimatedTime))
-    totalTime = ((size/512) * estimatedTime)/1000000
-    XenCertPrint("Total estimated time for testing IO with the device %s as %d" % (device, totalTime))
-    return totalTime
+    length = len(stdout.split('\n')) - 1
+    lastString = (stdout.split('\n')[length])
+    XenCertPrint("diskdatatest returned : %s" % lastString)
+    length2 = len(lastString.split(' ')) - 1
+    estimatedTime = int(lastString.split(' ')[length2])
+ 
+    XenCertPrint("Total estimated time for testing IO with the device %s as %d" % (device, estimatedTime))
+    return estimatedTime
 
 def _find_LUN(svid):
     basepath = "/dev/disk/by-csldev/"
