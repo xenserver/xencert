@@ -113,8 +113,9 @@ int verify_testpattern(int fd, struct fd_state *state, int bReportOnly, int *wri
 	unsigned long long sects, i;
 	struct sector_hdr *test;
 	char *buf;
-	clock_t start = clock(), finish;
-
+	time_t start_time, finish_time;
+	
+	time(&start_time);
 	buf = malloc(DEFAULT_SECTOR_SIZE);
 	if (!buf) 
 	{
@@ -123,7 +124,7 @@ int verify_testpattern(int fd, struct fd_state *state, int bReportOnly, int *wri
 	}
 	sects = state->size_sects;
 	ret = i = 0;
-    while (running) 
+        while (running) 
 	{
 
 		if (!(i % 1048576)) 
@@ -131,9 +132,6 @@ int verify_testpattern(int fd, struct fd_state *state, int bReportOnly, int *wri
 			printf("\nVerifying sector %llu of %llu\n", i, sects);
 		}
 
-		if (bReportOnly)
-			start = clock();
-		
 		/*Attempt to read the data*/
 		if (lseek(fd, i * DEFAULT_SECTOR_SIZE, SEEK_SET)==(off_t)-1) 
 		{
@@ -168,10 +166,13 @@ int verify_testpattern(int fd, struct fd_state *state, int bReportOnly, int *wri
 			}
 		}
 
-		if (bReportOnly)
-			finish = clock();
-			*writeEstimate = sects * ((finish - start)/CLOCKS_PER_SEC);
+		//Calculate the time to read 128k sectors to accurately estimate the time for reading all the sectors
+		if (bReportOnly && !(i % (1024*128)) && i>0)
+		{
+			time(&finish_time);
+			*writeEstimate = (difftime(finish_time, start_time)) * (sects/(128*1024));
 			break;
+		}
 
 	i++;
 	if (i >= sects)
@@ -189,7 +190,8 @@ int write_testpattern(int fd, struct fd_state *state, int bReportOnly, int *writ
 	unsigned long long sects, i;
 	struct sector_hdr hdr;
 	char *buf;
-	clock_t start = clock(), finish;		
+	time_t start_time, finish_time;
+	time(&start_time);
 
 	buf = malloc(DEFAULT_SECTOR_SIZE);
 	if (!buf) {
@@ -199,16 +201,12 @@ int write_testpattern(int fd, struct fd_state *state, int bReportOnly, int *writ
 
 	sects = state->size_sects;
 	i = 0;
-    while (running) 
+	while (running) 
 	{
-
 		if (!(i % 1048576)) 
 		{
 			printf("Writing sector %llu of %llu\n", i, sects);
 		}
-
-		if (bReportOnly)
-			start = clock();		
 	
 		/*Attempt to write the data*/
 		if (lseek(fd, i * DEFAULT_SECTOR_SIZE, SEEK_SET)==(off_t)-1) 
@@ -228,15 +226,18 @@ int write_testpattern(int fd, struct fd_state *state, int bReportOnly, int *writ
 			return -1;
 		}
 
-		if (bReportOnly)
-			finish = clock();
-			*writeEstimate = sects * ((finish - start)/CLOCKS_PER_SEC);
+		//Calculate the time to write on 128k sectors to accurately estimate the time for writing to all the sectors
+		if (bReportOnly && !(i % (1024*128)) && i>0)
+		{
+			time(&finish_time);
+			*writeEstimate = (difftime(finish_time, start_time)) * (sects/(1024*128));
 			break;
-
+		}
 		i++;
 		if (i >= sects)
 			running = 0;
 	}
+      
 	free(buf);
 	return 0;
 }
@@ -285,7 +286,7 @@ int main(int argc, char *argv[])
 				return -1;
 			retval = write_testpattern(fd, state, 1, &writeEstimate);
 			retval = verify_testpattern(fd, state, 1, &verifyEstimate);
-			printf("Estimated time: %s", (writeEstimate + verifyEstimate));
+			printf("Estimated time: %d", (writeEstimate + verifyEstimate));
 		}
 	else 
 		usage(argv[0]);
