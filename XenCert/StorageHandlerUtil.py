@@ -846,14 +846,13 @@ def FindDiskDataTestEstimate(device, size):
     cmd = ['./diskdatatest', 'report', '1', device]
     XenCertPrint("The command to be fired is: %s" % cmd)
     (rc, stdout, stderr) = util.doexec(cmd)
-    if rc != 0:
- 	XenCertPrint("Diskdatatest utility return Error : %s" % stderr)
-	return 0
-    length = len(stdout.split('\n')) - 1
-    lastString = (stdout.split('\n')[length])
-    XenCertPrint("diskdatatest returned : %s" % lastString)
-    length2 = len(lastString.split(' ')) - 1
-    estimatedTime = int(lastString.split(' ')[length2])
+    if rc == 0:
+        lastString = (stdout.split('\n')[-1])
+        XenCertPrint("diskdatatest returned : %s" % lastString)
+        estimatedTime = int(lastString.split(' ')[-1])
+    else:
+        XenCertPrint("Diskdatatest return Error : %s" % stderr)
+        estimateTime = 0
  
     XenCertPrint("Total estimated time for testing IO with the device %s as %d" % (device, estimatedTime))
     return estimatedTime

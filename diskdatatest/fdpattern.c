@@ -166,10 +166,11 @@ int verify_testpattern(int fd, struct fd_state *state, int bReportOnly, int *wri
 			}
 		}
 
-		if (bReportOnly && !(i % 1048576/8) && i>0)
+		//Calculate the time to read 128k sectors to accurately estimate the time for reading all the sectors
+		if (bReportOnly && !(i % (1024*128)) && i>0)
 		{
 			time(&finish_time);
-			*writeEstimate = (difftime(finish_time, start_time)) * (sects*8/1048576);
+			*writeEstimate = (difftime(finish_time, start_time)) * (sects/(128*1024));
 			break;
 		}
 
@@ -225,10 +226,11 @@ int write_testpattern(int fd, struct fd_state *state, int bReportOnly, int *writ
 			return -1;
 		}
 
-		if (bReportOnly && !(i % (1048576/8)) && i>0)
+		//Calculate the time to write on 128k sectors to accurately estimate the time for writing to all the sectors
+		if (bReportOnly && !(i % (1024*128)) && i>0)
 		{
 			time(&finish_time);
-			*writeEstimate = (difftime(finish_time, start_time)) * (sects*8/1048576);
+			*writeEstimate = (difftime(finish_time, start_time)) * (sects/(1024*128));
 			break;
 		}
 		i++;
