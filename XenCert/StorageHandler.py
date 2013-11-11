@@ -833,15 +833,7 @@ class StorageHandler:
     def MetaDataTests(self):
         Print("> Metadata tests")
         Print("----------------")
-        retVal = True
-        retVal = self.metadata_sr_attach_tests() and \
-            self.metadata_sr_scan_tests() and \
-            self.metadata_sr_probe_tests() and \
-            self.metadata_sr_update_tests() and \
-            self.metadata_general_vm_tests() and \
-            self.metadata_scalibility_tests() and \
-            self.metadata_atomicity_tests()
-        return retVal
+        return True 
         
     def metadata_sr_attach_tests(self):
         try:
@@ -1810,6 +1802,19 @@ class StorageHandlerISCSI(StorageHandler):
     def Create_SR(self):        
         return self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), \
             self.device_config, '0', 'XenCertTestSR', 'XenCertTestSR-desc', 'lvmoiscsi', '',False, {})
+
+    def MetaDataTests(self):
+        Print(">>> ISCSI Metadata tests")
+        Print("----------------")
+        retVal = True
+        retVal = self.metadata_sr_attach_tests() and \
+            self.metadata_sr_scan_tests() and \
+            self.metadata_sr_probe_tests() and \
+            self.metadata_sr_update_tests() and \
+            self.metadata_general_vm_tests() and \
+            self.metadata_scalibility_tests() and \
+            self.metadata_atomicity_tests()
+        return retVal
         
     def getMetaDataRec(self, params = {}):
         XenCertPrint("getMetaDataRec Enter")
@@ -2443,7 +2448,11 @@ class StorageHandlerHBA(StorageHandler):
             return True
         except Exception, e:            
             raise e
-        
+
+    def MetaDataTests(self):
+        Print("MetaDataTests not applicable to HBA SR type.")
+        return False       
+ 
     def FunctionalTests(self):
         retVal = True
         checkPoint = 0
@@ -2708,6 +2717,10 @@ class StorageHandlerNFS(StorageHandler):
         XenCertPrint("Reached StorageHandlerNFS destructor")
         StorageHandler.__del__(self)
         
+    def MetaDataTests(self):
+        Print("MetaDataTests not applicable to NFS SR type.")
+        return False
+
     def FunctionalTests(self):
         retVal = True
         checkPoints = 0
@@ -3145,6 +3158,19 @@ class StorageHandlerISL(StorageHandler):
         #  << TBD >>
 
         return (retVal, checkPoints, totalCheckPoints)   
+
+    def MetaDataTests(self):
+        Print(">>> ISL Metadata tests")
+        Print("----------------")
+        retVal = True
+        retVal = self.metadata_sr_attach_tests() and \
+            self.metadata_sr_scan_tests() and \
+            self.metadata_sr_probe_tests() and \
+            self.metadata_sr_update_tests() and \
+            self.metadata_general_vm_tests() and \
+            self.metadata_scalibility_tests() and \
+            self.metadata_atomicity_tests()
+        return retVal
 
     def FunctionalTests(self):
         retVal = True
