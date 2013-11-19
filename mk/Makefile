@@ -54,4 +54,4 @@ $(XENCERT_STAMP): $(RPM_SRPMSDIR)/$(XENCERT_SRPM)
 	touch $@
 
 $(SUPPORT_PACK): $(XENCERT_STAMP)
-	python setup.py --out $(dir $@) --pdn $(PRODUCT_BRAND) --pdv $(PRODUCT_VERSION) --bld $(BUILD) --spn $(notdir $@) --spd "XenCert" --rxv "6.2.0" $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xencert-$(XENCERT_VERSION)*.i686.rpm
+	python setup.py --out $(dir $@) --pdn $(PRODUCT_BRAND) --pdv $(PRODUCT_VERSION) --bld $(BUILD) --spn $(notdir $@) --spd "XenCert" --rxv "6.2.0" $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xencert-$(XENCERT_VERSION)*.x86_64.rpm
