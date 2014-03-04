@@ -2210,8 +2210,14 @@ class StorageHandlerISCSI(StorageHandler):
                         HBTL = mapDeviceToHBTL[lunToScsi[key][1]]
                         HBTL_id = HBTL[1] + ":" + HBTL[2] + ":" + HBTL[3] + ":" + HBTL[4]
                         filepath = '/sys/class/scsi_device/' + HBTL_id + '/device/block/*/size'
-                        XenCertPrint("The filepath is: %s" % filepath)
+
+                        # For clearwater version, the file path is device/block:*/size
                         filelist = glob.glob(filepath)
+                        if not filelist:
+                            filepath = '/sys/class/scsi_device/' + HBTL_id + '/device/block:*/size'
+                            filelist = glob.glob(filepath)
+
+                        XenCertPrint("The filepath is: %s" % filepath)
                         XenCertPrint("The HBTL_id is %s. The filelist is: %s" % (HBTL_id, filelist))
                         sectors = util.get_single_entry(filelist[0])
                         size = int(sectors) * 512 / 1024 / 1024
@@ -2560,9 +2566,15 @@ class StorageHandlerHBA(StorageHandler):
                         # Find the HBTL for this lun
                         HBTL = mapDeviceToHBTL[lun['device']]
                         HBTL_id = HBTL[1] + ":" + HBTL[2] + ":" + HBTL[3] + ":" + HBTL[4]
-                        filepath = '/sys/class/scsi_device/' + HBTL_id + '/device/block:*/size'
-                        XenCertPrint("The filepath is: %s" % filepath)
+                        filepath = '/sys/class/scsi_device/' + HBTL_id + '/device/block/*/size'
+
+                        # For clearwater version, the file path is device/block:*/size
                         filelist = glob.glob(filepath)
+                        if not filelist:
+                            filepath = '/sys/class/scsi_device/' + HBTL_id + '/device/block:*/size'
+                            filelist = glob.glob(filepath)
+
+                        XenCertPrint("The filepath is: %s" % filepath)
                         XenCertPrint("The HBTL_id is %s. The filelist is: %s" % (HBTL_id, filelist))
                         sectors = util.get_single_entry(filelist[0])
                         size = int(sectors) * 512 / 1024 / 1024
