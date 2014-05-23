@@ -2361,6 +2361,10 @@ class StorageHandlerHBA(StorageHandler):
         self.mapHBA = {}
         StorageHandler.__init__(self, storage_conf)
 
+    def Create_SR(self):
+        return self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), \
+            self.device_config, '0', 'XenCertTestSR', 'XenCertTestSR-desc', 'lvmohba', '',False, {})
+    
     def Create(self):
         device_config = {}
         retVal = True
