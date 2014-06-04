@@ -37,7 +37,7 @@ import commands
 from lvhdutil import VG_LOCATION,VG_PREFIX
 from lvutil import MDVOLUME_NAME, ensurePathExists, remove, rename
 from srmetadata import LVMMetadataHandler, updateLengthInHeader, open_file, \
-    close,  xs_file_write_wrapper
+    close, file_write_wrapper
 import metadata
 from xml.dom import minidom
 
