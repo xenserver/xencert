@@ -31,6 +31,7 @@ import re
 import commands
 import time
 import mpath_dmp
+import xs_errors
 
 ISCSI_PROCNAME = "iscsi_tcp"
 timeTaken = '' 
