@@ -139,9 +139,6 @@ class StorageHandler:
         self.session = util.get_localAPI_session()
         self.sm_config = {}
     
-    def getMetaDataRec(self):
-        return {}
-
     def performSRTrim(self, sr_ref):
         try:
             XenCertPrint("Calling TRIM plugin on SR: %s" %(sr_ref))
