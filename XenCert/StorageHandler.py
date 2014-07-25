@@ -3702,7 +3702,7 @@ class StorageHandlerISL(StorageHandler):
         
         return (retVal, checkPoint, totalCheckPoints)
 
-    def cleanup(context):
+    def cleanup(self):
         return
     
     def __del__(self):
