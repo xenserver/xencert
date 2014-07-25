@@ -134,9 +134,6 @@ class StorageHandler:
         self.session = util.get_localAPI_session()
         self.sm_config = {}
     
-    def getMetaDataRec(self):
-        return {}
-    
     def ControlPathStressTests(self):
         sr_ref = None 
         retVal = True
