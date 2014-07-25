@@ -524,16 +524,16 @@ class StorageHandler:
         try:
             # Try cleaning up here
             if vbd_ref1 != None:
-                self.session.xenapi.VBD.unplug(vbd1_ref)
-                XenCertPrint("Unplugged VBD %s" % vbd1_ref)
-                self.session.xenapi.VBD.destroy(vbd1_ref)
-                XenCertPrint("Destroyed VBD %s" % vbd1_ref)
+                self.session.xenapi.VBD.unplug(vbd_ref1)
+                XenCertPrint("Unplugged VBD %s" % vbd_ref1)
+                self.session.xenapi.VBD.destroy(vbd_ref1)
+                XenCertPrint("Destroyed VBD %s" % vbd_ref1)
 
             if vbd_ref2 != None:
-                self.session.xenapi.VBD.unplug(vbd2_ref)
-                XenCertPrint("Unplugged VBD %s" % vbd2_ref)
-                self.session.xenapi.VBD.destroy(vbd2_ref)
-                XenCertPrint("Destroyed VBD %s" % vbd2_ref)
+                self.session.xenapi.VBD.unplug(vbd_ref2)
+                XenCertPrint("Unplugged VBD %s" % vbd_ref2)
+                self.session.xenapi.VBD.destroy(vbd_ref2)
+                XenCertPrint("Destroyed VBD %s" % vbd_ref2)
 
             XenCertPrint("Destroying VDI %s" % vdi_ref1)
             if vdi_ref1 != None:
@@ -559,7 +559,6 @@ class StorageHandler:
                 self.session.xenapi.SR.forget(sr_ref)
         except Exception, e:
             Print("Could not cleanup the objects created during testing, please destroy the SR manually.")
-        XenCertPrint("Checkpoints: %d, totalCheckPoints: %s" % (checkPoint, totalCheckPoints))        
 
     def PoolTests(self):
         try:
