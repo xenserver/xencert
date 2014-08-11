@@ -344,7 +344,10 @@ def GetListPortalScsiIdForIqn(session, server, targetIqn, chapUser = None, chapP
     XenCertPrint("GetListPortalScsiIdForIqn - returning PortalList: %s." % listPortal)  
     XenCertPrint("GetListPortalScsiIdForIqn - returning SCSIIdList: %s." % listSCSIId)  
     return (listPortal, listSCSIId)
-    
+
+def extract_xml_from_exception(e):
+    return ','.join(str(e).split(',')[3:])
+
 # The returned structure are a list of portals, and a list of SCSIIds for the specified IQN. 
 def GetHBAInformation(session):
     try:
@@ -361,7 +364,7 @@ def GetHBAInformation(session):
 	    try:
 		# the target may not return any IQNs
 		# so prepare for it
-		xmlstr = str(e).split(',')[3]
+		xmlstr = extract_xml_from_exception(e)
 		xmlstr = xmlstr.lstrip()
 		xmlstr = xmlstr.lstrip('\'')
 		xmlstr = xmlstr.rstrip()
