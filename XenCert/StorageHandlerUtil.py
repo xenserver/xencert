@@ -405,18 +405,22 @@ def GetLunInformation(id):
     retVal = True
     listLunInfo = []
     try:
-	# take in a host id, then list all files in /dev/disk/by_scsibus of the form *-5* then extract
-	list = glob.glob('/dev/disk/by-scsibus/*-%s:*' % id)
-	for file in list:
-	    map = {}
-	    basename = os.path.basename(file)
-	    map['SCSIid'] = basename.split('-')[0]
-	    map['id'] = basename.split('-')[1].split(':')[3]
-	    map['device'] = os.path.realpath(file)
-	    listLunInfo.append(map)
+        # take in a host id, then list all files in /dev/disk/by_scsibus of the form *-5* then extract
+        list = glob.glob('/dev/disk/by-scsibus/*-%s:*' % id)
+        if len(list) == 0:
+            retVal = False
+        else:
+            for file in list:
+                map = {}
+                basename = os.path.basename(file)
+                map['SCSIid'] = basename.split('-')[0]
+                map['id'] = basename.split('-')[1].split(':')[3]
+                map['device'] = os.path.realpath(file)
+                listLunInfo.append(map)
     except Exception, e:
-	Print("Failed to get lun information for host id: %s, error: %s" % (id, str(e)))
-    
+        Print("Failed to get lun information for host id: %s, error: %s" % (id, str(e)))
+        retVal = False
+
     return (retVal, listLunInfo)
 	    
 def PlugAndUnplugPBDs(session, sr_ref, count):
