@@ -70,9 +70,9 @@ for ip in newList:
 
 paths = paths.strip(',')
 
-xs_handle = xslib.xs_daemon_open()
+xs_handle = xslib.get_xs_handle()
 xslib.setval(xs_handle, '/xencert/block-unblock-over', '1')
-xslib.xs_daemon_close(xs_handle)
+del xs_handle
 if op == 'block':
     sys.stdout.write(paths)
 sys.exit(0)

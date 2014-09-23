@@ -42,7 +42,7 @@ if len(sys.argv) != 5 and len(sys.argv) != 1 :
     help()
 
 retVal = ''
-xs_handle = xslib.xs_daemon_open()
+xs_handle = xslib.get_xs_handle()
 xslib.setval(xs_handle, '/xencert/block-unblock-over', '0')
 block_unblock_over = xslib.getval(xs_handle, '/xencert/block-unblock-over')
 if len(sys.argv) == 5:
@@ -61,6 +61,6 @@ while block_unblock_over != '1':
     block_unblock_over = xslib.getval(xs_handle, '/xencert/block-unblock-over')
     
 os.system('xenstore-rm /xencert')
-xslib.xs_daemon_close(xs_handle)
+del xs_handle
 sys.stdout.write(retVal)    
 sys.exit(0)

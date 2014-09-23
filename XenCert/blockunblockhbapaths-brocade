@@ -68,9 +68,9 @@ for port in sampled_portlist:
     elif op == 'unblock':
         blockUnblockPort(False, ip, username, password, port)
 
-xs_handle = xslib.xs_daemon_open()
+xs_handle = xslib.get_xs_handle()
 xslib.setval(xs_handle, '/xencert/block-unblock-over', '1')
-xslib.xs_daemon_close(xs_handle)
+del xs_handle
 
 if op == 'block':
     retVal = retVal.strip(',')
