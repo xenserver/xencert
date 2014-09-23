@@ -2545,7 +2545,7 @@ class StorageHandlerHBA(StorageHandler):
                     mapDeviceToHBTL = scsiutil.cacheSCSIidentifiers()
                     XenCertPrint("The mapDeviceToHBTL is %s" % mapDeviceToHBTL)
 
-                    if first and len(listLunInfo) > 0:
+                    if first or len(listLunInfo) > 0:
                         Print("     %-4s\t%-34s\t%-20s\t%-10s" % ('LUN', 'SCSI-ID', 'Device', 'Size(MiB)'))
                         first = False
                         refListLuns = listLunInfo
