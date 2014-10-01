@@ -53,6 +53,8 @@ BUF_PATTERN = CHAR_SEQ + CHAR_SEQ
 BUF_PATTERN_REV = CHAR_SEQ_REV + CHAR_SEQ_REV
 BUF_ZEROS = "\0" * 512
 
+DISKDATATEST = '/opt/xensource/debug/XenCert/diskdatatest'
+
 multiPathDefaultsMap = { 'udev_dir':'/dev',
 			    'polling_interval':'5',
 			    'selector': "round-robin 0",
@@ -850,7 +852,7 @@ def FindDiskDataTestEstimate(device, size):
     estimatedTime = 0
     # Run diskdatatest in a report mode
     XenCertPrint("Run diskdatatest in a report mode with device %s to find the estimated time." % device)
-    cmd = ['./diskdatatest', 'report', '1', device]
+    cmd = [DISKDATATEST, 'report', '1', device]
     XenCertPrint("The command to be fired is: %s" % cmd)
     (rc, stdout, stderr) = util.doexec(cmd)
     if rc == 0:

@@ -22,6 +22,7 @@ from StorageHandlerUtil import Print
 from StorageHandlerUtil import PrintOnSameLine
 from StorageHandlerUtil import XenCertPrint
 from StorageHandlerUtil import displayOperationStatus
+from StorageHandlerUtil import DISKDATATEST
 from srmetadata import SLMetadataHandler
 import scsiutil, iscsilib
 import XenAPI
@@ -2301,11 +2302,11 @@ class StorageHandlerISCSI(StorageHandler):
                             cmd = ['dd', 'if=/dev/zero', 'of=%s' % tuple[2], 'bs=1M', 'count=1', 'conv=nocreat', 'oflag=direct']
                             util.pread(cmd)
                                                         
-                            cmd = ['./diskdatatest', 'write', '1', tuple[2]]
+                            cmd = [DISKDATATEST, 'write', '1', tuple[2]]
                             XenCertPrint("The command to be fired is: %s" % cmd)
                             util.pread(cmd)
                             
-                            cmd = ['./diskdatatest', 'verify', '1', tuple[2]]
+                            cmd = [DISKDATATEST, 'verify', '1', tuple[2]]
                             XenCertPrint("The command to be fired is: %s" % cmd)
                             util.pread(cmd)
                             
@@ -2654,11 +2655,11 @@ class StorageHandlerHBA(StorageHandler):
                             cmd = ['dd', 'if=/dev/zero', 'of=%s' % device, 'bs=1M', 'count=1', 'conv=nocreat', 'oflag=direct']
                             util.pread(cmd)
 
-                            cmd = ['./diskdatatest', 'write', '1', device]
+                            cmd = [DISKDATATEST, 'write', '1', device]
                             XenCertPrint("The command to be fired is: %s" % cmd)
                             util.pread(cmd)
                             
-                            cmd = ['./diskdatatest', 'verify', '1', device]
+                            cmd = [DISKDATATEST, 'verify', '1', device]
                             XenCertPrint("The command to be fired is: %s" % cmd)
                             util.pread(cmd)
                             
