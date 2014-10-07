@@ -625,9 +625,9 @@ class StorageHandler:
         try:
             stdout = ''
             if blockOrUnblock:
-                cmd = [os.path.join(os.getcwd(), 'blockunblockpaths'), script, 'block', str(noOfPaths), passthrough]
+                cmd = [os.path.join(os.getcwd(), script), 'block', str(noOfPaths), passthrough]
             else:
-                cmd = [os.path.join(os.getcwd(), 'blockunblockpaths'), script, 'unblock', str(noOfPaths), passthrough]
+                cmd = [os.path.join(os.getcwd(), script), 'unblock', str(noOfPaths), passthrough]
             
             (rc, stdout, stderr) = util.doexec(cmd,'')
 
