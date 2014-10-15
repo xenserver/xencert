@@ -128,7 +128,9 @@ class StorageHandler:
                                          'on_boot',
                                          'allow_caching',                                         
                                          'tags',
-                                         'metadata_latest']
+                                         'metadata_latest',
+                                         'metadata_of_pool',
+                                         'snapshot_time']
     def __init__(self, storage_conf):
         XenCertPrint("Reached Storagehandler constructor")
         self.storage_conf = storage_conf
@@ -849,10 +851,12 @@ class StorageHandler:
                 Print(">> SR ATTACH ")
                 Print(">>> 1. Metadata volume present but is of an older version.")
                 Print(">>>>     Create a SR")
-                self.sr_ref = self.Create_SR()
+                (retVal, self.sr_ref, device_config) = self.Create()
+                if not retVal:
+                    raise Exception("      SR creation failed.")
                 self.sr_uuid = self.session.xenapi.SR.get_uuid(self.sr_ref)
                 displayOperationStatus(True)                
-                
+
                 Print(">>>>     Add 3 VDIs")
                 (result, vdi_ref1) = self.Create_VDI(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_1")
                 if not result:
@@ -870,7 +874,7 @@ class StorageHandler:
                 else:
                     vdi_uuid3 = self.session.xenapi.VDI.get_uuid(vdi_ref3)
                 displayOperationStatus(True)
-                
+
                 # update the metadata file manually to
                 # bring down the metadata version to 1.0
                 # update the length to just the SR information length - 2048
@@ -881,42 +885,42 @@ class StorageHandler:
                     close(fd)
                     fd = -1
                 displayOperationStatus(True)
-                
+
                 # detach the SR
                 Print(">>>>     Detach the SR")
                 for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
                     self.Unplug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 # attach the SR again
                 Print(">>>>     Attach the SR")
                 self.Plug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 # make sure all the VDIs are created in metadata and match the information in XAPI
                 Print(">>>>     Make sure all the VDIs are created in metadata and match the information in XAPI")
                 self.VerifyVDIsInMetadata(self.mdpath, [vdi_uuid1, vdi_uuid2, \
                                                         vdi_uuid3])
                 displayOperationStatus(True)
-                
+
                 Print(">>> 2. Metadata volume not present - upgrade from a XenServer version which does not have SR metadata volume")
-                
+
                 # detach the SR
                 Print(">>>>     Detach the SR")
                 for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
                     self.Unplug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 # remove the MGT LV from the storage
                 Print(">>>>     Remove the management volume from the storage")
                 self.removeMGTVolume()
                 displayOperationStatus(True)
-                
+
                 # attach the SR
                 Print(">>>>     Attach the SR")
                 self.Plug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 # make sure all the VDIs are created in metadata and match the information in XAPI
                 Print(">>>>     Make sure all the VDIs are created in metadata and match the information in XAPI")
                 self.setMdPath()
@@ -926,7 +930,7 @@ class StorageHandler:
 
                 # Forget the SR, introduce and attach again
                 Print(">>> 3. Forget the SR, introduce and attach again")
-                
+
                 # detach the SR
                 Print(">>>>     Detach the SR")
                 for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
@@ -935,30 +939,30 @@ class StorageHandler:
                     self.Unplug_PBD(pbd)
                     self.Destroy_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 # forget the SR
                 Print(">>>>     Forget the SR")
                 self.session.xenapi.SR.forget(self.sr_ref)
                 displayOperationStatus(True)
-                
+
                 # introduce the SR
                 Print(">>>>     Introduce the SR")
                 self.sr_ref = self.session.xenapi.SR.introduce(self.sr_uuid, \
                                 'XenCertTestSR', '', 'lvmoiscsi', '', True, {})
                 self.sr_uuid = self.session.xenapi.SR.get_uuid(self.sr_ref)
                 displayOperationStatus(True)
-                
+
                 # attach the SR
                 Print(">>>>     Attach the SR")
                 pbd = self.Create_PBD(self.sr_ref, device_config)
                 self.Plug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 # scan the SR
                 Print(">>>>     Scan the SR")
                 self.session.xenapi.SR.scan(self.sr_ref)
                 displayOperationStatus(True)
-                
+
                 # make sure all the VDIs are created in metadata and match the information in XAPI
                 Print(">>>>     Make sure all the VDIs are created in metadata and match the information in XAPI")
                 self.setMdPath()
@@ -968,23 +972,23 @@ class StorageHandler:
 
                 Print(">>>  4. Metadata volume present and if of the correct version")
                 Print(">>>>     4.1. One or more VDIs present in metadata but not present in storage anymore.")
-                
+
                 # Remove storage for the last VDI from the backend
                 Print(">>>>>        Remove storage for the last VDI from the backend")
                 self.removeVDIFromStorage(vdi_uuid3)
                 displayOperationStatus(True)
-                
+
                 # detach the SR
                 Print(">>>>>        Detach the SR")
                 for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
                     self.Unplug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 # attach the SR
                 Print(">>>>>        Attach the SR")
                 self.Plug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 # the entries for the missing VDIs should be removed from the metadata and XAPI
                 Print(">>>>>        Check that the VDI is removed from the metadata.")
                 vdi_info = self.getMetaDataRec({'indexByUuid': 1})[1]
@@ -993,7 +997,7 @@ class StorageHandler:
                             "after the storage was deleted before SR "\
                             "attach." % vdi_uuid3)
                 displayOperationStatus(True)
-                
+
                 # They should not be in XAPI either
                 Print(">>>>>        Scan the SR and check that the VDI is removed from XAPI.")
                 self.session.xenapi.SR.scan(self.sr_ref)
@@ -1004,38 +1008,38 @@ class StorageHandler:
                 except:
                     # this is fine, we do not expect it in XAPI
                     pass
-                
+
                 if vdi_found_in_xapi:
                     raise Exception(" VDI %s found in XAPI, even after the " \
                         "storage was deleted before SR attach." % vdi_uuid3)
                 else:
                     displayOperationStatus(True)
-            
+
             except Exception, e:
                 Print("Exception testing metadata SR attach tests. Error: %s" % str(e))
                 retVal = False
                 displayOperationStatus(False)
-        
+
         finally:
             if fd != -1:
                 ret = close(fd)
-                
+
             if self.sr_ref != None:
                 Print(">>>> Delete VDIs on the SR")
                 for vdi in self.session.xenapi.SR.get_VDIs(self.sr_ref):
                     if self.session.xenapi.VDI.get_managed(vdi):
                         self.Destroy_VDI(vdi)
                 displayOperationStatus(True)
-                
+
                 Print(">>>> Detach the SR")
                 for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
                     self.Unplug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 Print(">>>> Destroy the SR")
                 self.Destroy_SR(self.sr_ref)
                 displayOperationStatus(True)
-        
+
         return retVal
 
     def metadata_sr_probe_tests(self):
@@ -1049,7 +1053,9 @@ class StorageHandler:
                 result = True
                 Print(">> SR PROBE ")
                 Print(">>>     Create a SR")
-                self.sr_ref = self.Create_SR()
+                (retVal, self.sr_ref, device_config) = self.Create()
+                if not retVal:
+                    raise Exception("      SR creation failed.")
                 self.sr_uuid = self.session.xenapi.SR.get_uuid(self.sr_ref)
                 displayOperationStatus(True)                
                 
@@ -1077,7 +1083,7 @@ class StorageHandler:
                 
                 Print(">>>>         Make sure we get only UUID and Devlist, save these.")
                 sr_info = self.parseProbeOutput(output)
-                if len(sr_info.keys()) != 2 or not sr_info.has_key('UUID') or \
+                if len(sr_info.keys()) < 2 or not sr_info.has_key('UUID') or \
                     not sr_info.has_key('Devlist'):
                         raise Exception(" Non-metadata probe returned "\
                                 "incorrect details. Probe output: %s" % sr_info)
@@ -1102,11 +1108,13 @@ class StorageHandler:
                 displayOperationStatus(True)
                 
                 Print(">>>>         Make sure all parameters are correct and that pool_metadata_detected is False")
-                if sr_info['UUID'] != self.sr_uuid  or \
-                    sr_info['Devlist'] != self.devlist or \
-                    sr_info['name_label'] != 'XenCertTestSR' or \
-                    sr_info['name_description'] != 'XenCertTestSR-desc' or \
-                    sr_info['pool_metadata_detected'] != 'false':
+                if sr_info['UUID'] == self.sr_uuid  or \
+                    sr_info['Devlist'] == self.devlist or \
+                    sr_info['name_label'] == 'XenCertTestSR' or \
+                    sr_info['name_description'] == 'XenCertTestSR-desc' or \
+                    sr_info['pool_metadata_detected'] == 'false':
+                        XenCertPrint("All parameters validated!")
+                else:
                     raise Exception(" Metadata probe returned incomplete " \
                                     "details. Probe output: %s" % sr_info)
                 displayOperationStatus(True)
@@ -1132,11 +1140,13 @@ class StorageHandler:
                 displayOperationStatus(True)
                 
                 Print(">>>>         Make sure all parameters are correct and that pool_metadata_detected is True")
-                if sr_info['UUID'] != self.sr_uuid  or \
-                    sr_info['Devlist'] != self.devlist or \
-                    sr_info['name_label'] != 'XenCertTestSR' or \
-                    sr_info['name_description'] != 'XenCertTestSR-desc' or \
-                    sr_info['pool_metadata_detected'] != 'true':
+                if sr_info['UUID'] == self.sr_uuid  or \
+                    sr_info['Devlist'] == self.devlist or \
+                    sr_info['name_label'] == 'XenCertTestSR' or \
+                    sr_info['name_description'] == 'XenCertTestSR-desc' or \
+                    sr_info['pool_metadata_detected'] == 'true':
+                        XenCertPrint("All parameters validated!")
+                else:
                     raise Exception(" Metadata probe returned incomplete " \
                                     "details. Probe output: %s" % sr_info)
                 displayOperationStatus(True)
@@ -1181,10 +1191,12 @@ class StorageHandler:
                 Print(">> SR SCAN ")
                 Print(">>> 1. VDI present in SR metadata but missing from XAPI.")
                 Print(">>>>     Create a SR")
-                self.sr_ref = self.Create_SR()
+                (retVal, self.sr_ref, device_config) = self.Create()
+                if not retVal:
+                    raise Exception("      SR creation failed.")
                 self.sr_uuid = self.session.xenapi.SR.get_uuid(self.sr_ref)
                 displayOperationStatus(True)                
-                
+
                 Print(">>>>     Add the source VDI")
                 (result, vdi_ref1) = self.Create_VDI(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_1")
                 if not result:
@@ -1192,7 +1204,7 @@ class StorageHandler:
                 else:
                     vdi_uuid1 = self.session.xenapi.VDI.get_uuid(vdi_ref1)                
                 displayOperationStatus(True)
-                
+
                 Print(">>>>     Snapshot the source VDI")                
                 (result, vdi_ref2) = self.Snapshot_VDI(vdi_ref1)
                 if not result:
@@ -1200,7 +1212,7 @@ class StorageHandler:
                 else:
                     vdi_uuid2 = self.session.xenapi.VDI.get_uuid(vdi_ref2)
                 displayOperationStatus(True)
-                
+
                 Print(">>>>     Clone the source VDI")
                 (result, vdi_ref3) = self.Clone_VDI(vdi_ref1)
                 if not result:
@@ -1208,19 +1220,19 @@ class StorageHandler:
                 else:
                     vdi_uuid3 = self.session.xenapi.VDI.get_uuid(vdi_ref3)
                 displayOperationStatus(True)
-                
+
                 Print(">>>>     Now forget VDIs in the SR and make sure they are introduced correctly")            
                 for vdi in self.session.xenapi.SR.get_VDIs(self.sr_ref):
                     Print(">>>>>        Doing forget-scan-introduce test on "\
                         "VDI: %s" % self.session.xenapi.VDI.get_name_label(vdi))
                     self.TestForgetScanIntroduce([self.session.xenapi.VDI.get_uuid(vdi)])
                     displayOperationStatus(True)
-                
+
                 Print(">>> 2. Metadata VDI test.")
                 Print(">>>>     Enable database replication on the SR")
                 self.session.xenapi.SR.enable_database_replication(self.sr_ref)
                 displayOperationStatus(True)
-                
+
                 Print(">>>>     Fetch and store metadata VDI details")
                 vdis = self.session.xenapi.SR.get_VDIs(self.sr_ref)
                 for vdi in vdis:
@@ -1228,7 +1240,7 @@ class StorageHandler:
                         original_params = self.populateVDI_XAPIFields(vdi)
                         break
                 displayOperationStatus(True)
-                
+
                 # detach the SR
                 Print(">>>>     Detach the SR")
                 for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
@@ -1237,30 +1249,30 @@ class StorageHandler:
                     self.Unplug_PBD(pbd)
                     self.Destroy_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 # forget the SR
                 Print(">>>>     Forget the SR")
                 self.session.xenapi.SR.forget(self.sr_ref)
                 displayOperationStatus(True)
-                
+
                 # introduce the SR
                 Print(">>>>     Introduce the SR")
                 self.sr_ref = self.session.xenapi.SR.introduce(self.sr_uuid, \
                                 'XenCertTestSR', '', 'lvmoiscsi', '', True, {})
                 self.sr_uuid = self.session.xenapi.SR.get_uuid(self.sr_ref)
                 displayOperationStatus(True)
-                
+
                 # attach the SR
                 Print(">>>>     Attach the SR")
                 pbd = self.Create_PBD(self.sr_ref, device_config)
                 self.Plug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 # scan the SR
                 Print(">>>>     Scan the SR")
                 self.session.xenapi.SR.scan(self.sr_ref)
                 displayOperationStatus(True)
-                
+
                 # Compare new VDI params with the original params 
                 Print(">>>>     Compare new VDI params with the original params")
                 vdi = self.session.xenapi.VDI.get_by_uuid(original_params['uuid'])
@@ -1288,21 +1300,21 @@ class StorageHandler:
                     if diff != '':
                         raise Exception("New VDI params do not match the original params. "\
                                 "Difference: %s" % diff)
-                
+
                 Print(">>>  3. VDI present in XAPI, but missing from metadata.")
                 Print(">>>>     Delete one of the VDIs from the metadata")
                 self.deleteVdiFromMetadata(vdi_uuid2)
                 displayOperationStatus(True)
-                
+
                 Print(">>>>     Also remove the VDI from the storage")
                 self.removeVDIFromStorage(vdi_uuid2)
                 displayOperationStatus(True)
-                
+
                 # scan the SR
                 Print(">>>>     Scan the SR")
                 self.session.xenapi.SR.scan(self.sr_ref)
                 displayOperationStatus(True)
-                
+
                 Print(">>>>     Make sure the VDI is removed from XAPI")
                 found = False
                 try:
@@ -1310,11 +1322,11 @@ class StorageHandler:
                     found = True
                 except:
                     pass
-                
+
                 if found:
                     raise Exception("VDI %s absent from storage not removed " \
                                     "from XAPI on scan." % vdi_uuid2)
-                
+
                 Print(">>>  4. Snapshot relationship tests")
                 Print(">>>>     Take 3 snapshots of the VDI")
                 vdi_ref1 = self.session.xenapi.VDI.get_by_uuid(vdi_uuid1)
@@ -1323,45 +1335,45 @@ class StorageHandler:
                     raise Exception ("Failed to snapshot VDI. Error: %s" % snap_ref1)
                 else:
                     snap_uuid1 = self.session.xenapi.VDI.get_uuid(snap_ref1)
-                
+
                 (result, snap_ref2) = self.Snapshot_VDI(vdi_ref1)
                 if not result:
                     raise Exception ("Failed to snapshot VDI. Error: %s" % snap_ref2)
                 else:
                     snap_uuid2 = self.session.xenapi.VDI.get_uuid(snap_ref2)
-                
+
                 (result, snap_ref3) = self.Snapshot_VDI(vdi_ref1)
                 if not result:
                     raise Exception ("Failed to snapshot VDI. Error: %s" % snap_ref3)
                 else:
                     snap_uuid3 = self.session.xenapi.VDI.get_uuid(snap_ref3)
                 displayOperationStatus(True)
-                
+
                 Print(">>>>     Normal scan case")
                 Print(">>>>>        Forget the VDI and all its snapshots")
                 self.TestForgetScanIntroduce([vdi_uuid1, snap_uuid1, snap_uuid2, snap_uuid3])
                 displayOperationStatus(True)
-                
+
                 Print(">>>>     A subset of snapshot VDIs lost, with the source VDI")
                 Print(">>>>>        Forget the VDI and a subset of its snapshots")
                 self.TestForgetScanIntroduce([vdi_uuid1, snap_uuid1, snap_uuid3])
                 displayOperationStatus(True)
-                
+
                 Print(">>>>     A subset of snapshot VDIs lost, without the source VDI")
                 Print(">>>>>        Forget a subset of the snapshots")
                 self.TestForgetScanIntroduce([snap_uuid1, snap_uuid2])
                 displayOperationStatus(True)
-                
+
                 Print(">>>>     Only the source VDI lost ")
                 Print(">>>>>        Forget just the source VDI")
                 self.TestForgetScanIntroduce([vdi_uuid1])
                 displayOperationStatus(True)
-                
+
             except Exception, e:
                 Print("Exception testing metadata SR scan tests. Error: %s" % str(e))
                 retVal = False
                 displayOperationStatus(False)
-        
+
         finally:
             if self.sr_ref != None:
                 Print(">>>> Delete VDIs on the SR")
@@ -1369,18 +1381,18 @@ class StorageHandler:
                     if self.session.xenapi.VDI.get_managed(vdi):
                         self.Destroy_VDI(vdi)
                 displayOperationStatus(True)
-                
+
                 Print(">>>> Detach the SR")
                 for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
                     self.Unplug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 Print(">>>> Destroy the SR")
                 self.Destroy_SR(self.sr_ref)
                 displayOperationStatus(True)
-        
+
         return retVal
-    
+
     def metadata_sr_update_tests(self):
         try:
             retVal = True
@@ -1392,7 +1404,9 @@ class StorageHandler:
                 result = True
                 Print(">>   SR UPDATE")
                 Print(">>>      Create a SR")
-                self.sr_ref = self.Create_SR()
+                (retVal, self.sr_ref, device_config) = self.Create()
+                if not retVal:
+                    raise Exception("      SR creation failed.")
                 self.sr_uuid = self.session.xenapi.SR.get_uuid(self.sr_ref)
                 displayOperationStatus(True)
                 
@@ -1920,28 +1934,32 @@ class StorageHandlerISCSI(StorageHandler):
                 Print(">>> 5. LVM-specific tests")
                 Print(">>>>     VDI present in both storage and metadata but differs in type.")
                 Print(">>>>>        Create a SR")
-                self.sr_ref = self.Create_SR()
+                (retVal, self.sr_ref, device_config) = self.Create()
+                if not retVal:
+                    raise Exception("      SR creation failed.")
                 self.sr_uuid = self.session.xenapi.SR.get_uuid(self.sr_ref)
-                displayOperationStatus(True)                
-                
+                displayOperationStatus(True)
+
                 Print(">>>>>        Add 3 VDIs")
                 (result, vdi_ref1) = self.Create_VDI(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_1")
                 if not result:
                     raise Exception ("Failed to create VDI.")
                 else:
                     vdi_uuid1 = self.session.xenapi.VDI.get_uuid(vdi_ref1)
+
                 (result, vdi_ref2) = self.Create_VDI(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_2")
                 if not result:
                     raise Exception ("Failed to create VDI.")
                 else:
                     vdi_uuid2 = self.session.xenapi.VDI.get_uuid(vdi_ref2)
+
                 (result, vdi_ref3) = self.Create_VDI(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_3")
                 if not result:
                     raise Exception ("Failed to create VDI.")
                 else:
                     vdi_uuid3 = self.session.xenapi.VDI.get_uuid(vdi_ref3)
                 displayOperationStatus(True)
-                
+
                 # rename a VHD- logical volume to begin with LV-
                 Print(">>>>>        rename a VHD- logical volume to begin with LV-")
                 path = os.path.join(VG_LOCATION, VG_PREFIX + self.sr_uuid)
@@ -1949,18 +1967,18 @@ class StorageHandlerISCSI(StorageHandler):
                 newpath = os.path.join(path, 'LV-%s' % vdi_uuid3)
                 rename(path, newpath)
                 displayOperationStatus(True)
-                
+
                 # detach the SR
                 Print(">>>>>        Detach the SR")
                 for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
                     self.Unplug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 # attach the SR
                 Print(">>>>>        Attach the SR")
                 self.Plug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 # the entries for the missing VDIs should be removed from the metadata and XAPI
                 Print(">>>>>        Check that the VDI type is changed in metadata.")
                 vdi_info = self.getMetaDataRec({'indexByUuid': 1})[1]
@@ -1969,7 +1987,7 @@ class StorageHandlerISCSI(StorageHandler):
                         "in the metadata. Type in metadata: %s" % \
                         (vdi_uuid3, vdi_info[vdi_uuid3]['vdi_type']))
                 displayOperationStatus(True)
-                
+
                 # The type should also be chnaged in XAPI after a scan
                 Print(">>>>>        Scan the SR and check that the VDI type is changed in XAPI.")
                 self.session.xenapi.SR.scan(self.sr_ref)
@@ -1980,12 +1998,12 @@ class StorageHandlerISCSI(StorageHandler):
                         "in XAPI. Type in XAPI: %s" % (vdi_uuid3, type))
                 else:
                     displayOperationStatus(True)
-            
+
             except Exception, e:
                 Print("Exception testing metadata SR attach tests. Error: %s" % str(e))
                 retVal = False
                 displayOperationStatus(False)
-        
+
         finally:
             if self.sr_ref != None:
                 Print(">>>>>    Delete VDIs on the SR")
@@ -1993,18 +2011,18 @@ class StorageHandlerISCSI(StorageHandler):
                     if self.session.xenapi.VDI.get_managed(vdi):
                         self.Destroy_VDI(vdi)
                 displayOperationStatus(True)
-                
+
                 Print(">>>>>    Detach the SR")
                 for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
                     self.Unplug_PBD(pbd)
                 displayOperationStatus(True)
-                
+
                 Print(">>>>>    Destroy the SR")
                 self.Destroy_SR(self.sr_ref)
                 displayOperationStatus(True)
-        
+
         return retVal
-    
+
     def deleteVdiFromMetadata(self, vdi_uuid):
         self.setMdPath()
         LVMMetadataHandler(self.mdpath).deleteVdiFromMetadata(vdi_uuid)
@@ -2019,7 +2037,7 @@ class StorageHandlerISCSI(StorageHandler):
                          (self.device_config, self.sm_config, str(e)))
             return ''        
 
-    def Create(self, device_config = {}):        
+    def Create(self, device_config = {}):
         retVal = True
         sr_ref = None
         try:
@@ -2043,7 +2061,7 @@ class StorageHandlerISCSI(StorageHandler):
                 try:                    
                     device_config['SCSIid'] = scsiId
                     XenCertPrint("The SR create parameters are %s, %s" % (util.get_localhost_uuid(self.session), device_config))
-                    sr_ref = self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), device_config, '0', 'XenCertTestSR', '', 'lvmoiscsi', '',False, {})
+                    sr_ref = self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), device_config, '0', 'XenCertTestSR', '', 'lvmoiscsi', '',True, {})
                     XenCertPrint("Created the SR %s using device_config %s" % (sr_ref, device_config))
                     displayOperationStatus(True)
                     break
