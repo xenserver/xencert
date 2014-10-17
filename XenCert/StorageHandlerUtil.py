@@ -596,7 +596,7 @@ def Detach_VDI(session, vdi_ref):
 def FindTimeToWriteData(devicename, sizeInMiB):
     ddOutFile = 'of=' + devicename
     XenCertPrint("Now copy %dMiB data from /dev/zero to this device and record the time taken to copy it." % sizeInMiB)
-    cmd = ['dd', 'if=/dev/zero', ddOutFile, 'bs=4096', 'count=%d' % (sizeInMiB * 256), 'oflag=direct']
+    cmd = ['dd', 'if=/dev/zero', ddOutFile, 'bs=4096', 'count=%d' % (sizeInMiB * 256)]
     try:
 	(rc, stdout, stderr) = util.doexec(cmd,'')
 	list = stderr.split('\n')
