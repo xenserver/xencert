@@ -1810,7 +1810,6 @@ class StorageHandlerISCSI(StorageHandler):
         retVal = True
         retVal = self.metadata_sr_attach_tests() and \
             self.metadata_sr_scan_tests() and \
-            self.metadata_sr_probe_tests() and \
             self.metadata_sr_update_tests() and \
             self.metadata_general_vm_tests() and \
             self.metadata_scalibility_tests() and \
