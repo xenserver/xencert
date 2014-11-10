@@ -139,6 +139,16 @@ class StorageHandler:
     
     def getMetaDataRec(self):
         return {}
+
+    def performSRTrim(self, sr_ref):
+        try:
+            XenCertPrint("Calling TRIM plugin on SR: %s" %(sr_ref))
+            sr_uuid = self.session.xenapi.SR.get_uuid(sr_ref)
+            host_ref = util.get_this_host_ref(self.session)
+            return self.session.xenapi.host.call_plugin(host_ref, 'trim', 'do_trim', {'sr_uuid': sr_uuid})
+        except Exception, e:
+            XenCertPrint("TRIM tests failed due to exception: %s" %(str(e)))
+            return False
     
     def ControlPathStressTests(self):
         sr_ref = None 
@@ -183,15 +193,15 @@ class StorageHandler:
                     raise Exception("      SR creation failed.")
                 else:
                     checkPoint += 1
-                
+
                 XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config))
                 displayOperationStatus(True)
             except Exception, e:
                 displayOperationStatus(False)
                 raise e
-                        
+
             (checkPointDelta, retVal) = StorageHandlerUtil.PerformSRControlPathTests(self.session, sr_ref)
-            if not retVal:                
+            if not retVal:
                 raise Exception("PerformSRControlPathTests failed. Please check the logs for details.")
             else:
                 checkPoint += checkPointDelta
@@ -204,15 +214,24 @@ class StorageHandler:
 
         try:
             # Try cleaning up here
+            # Execute trim on the SR before destroying based on type
             if sr_ref != None:
+                sr_type = self.session.xenapi.SR.get_type(sr_ref)
+                if sr_type in ['lvmoiscsi', 'lvmohba']:
+                    Print("SR SPACE RECLAMATION TEST")
+                    # Perform TRIM before destroying SR
+                    totalCheckPoints += 1
+                    trim_status = self.performSRTrim(sr_ref)
+                    if trim_status:
+                        checkPoint += 1
+                    Print("      Trim Plugin Status: %s" % (str(trim_status)))
                 Print("      Destroy the SR.")
                 StorageHandlerUtil.DestroySR(self.session, sr_ref)
                 checkPoint += 1
         except Exception, e:
             Print("- Could not cleanup the objects created during testing, please destroy the SR manually. Exception: %s" % str(e))
             displayOperationStatus(False)
-            
-        
+
         XenCertPrint("Checkpoints: %d, totalCheckPoints: %s" % (checkPoint, totalCheckPoints))
         return (retVal, checkPoint, totalCheckPoints)
 
@@ -2712,7 +2731,7 @@ class StorageHandlerHBA(StorageHandler):
         XenCertPrint("Leaving StorageHandlerHBA FunctionalTests")
 
         return (retVal, checkPoint, totalCheckPoints)
-    
+
     def __del__(self):
         XenCertPrint("Reached StorageHandlerHBA destructor")
         StorageHandler.__del__(self)
