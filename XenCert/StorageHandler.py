@@ -2552,8 +2552,8 @@ class StorageHandlerHBA(StorageHandler):
             scsiToTupleMap = {}
             for map in prunedList:
                 try:
-                    (retVal, listLunInfo) = StorageHandlerUtil.GetLunInformation(map['id'])
-                    if not retVal:                                                    
+                    (rVal, listLunInfo) = StorageHandlerUtil.GetLunInformation(map['id'])
+                    if not rVal:                                                    
                         raise Exception("Failed to get LUN information for host id: %s" % map['id'])
                     else:
                         XenCertPrint("Got LUN information for host id %s as %s" % (map['id'], listLunInfo))
