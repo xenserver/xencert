@@ -264,7 +264,7 @@ class StorageHandler:
                 StorageHandlerUtil.enable_multipathing(self.session, util.get_localhost_uuid(self.session))
                 disableMP = True
 
-               #2. Create and plug SR
+            #2. Create and plug SR
             Print("CREATING SR")
             (retVal, sr_ref, device_config) = self.Create()            
             if not retVal:                    
@@ -2396,7 +2396,6 @@ class StorageHandlerISCSI(StorageHandler):
 class StorageHandlerHBA(StorageHandler):
     def __init__(self, storage_conf):
         XenCertPrint("Reached StorageHandlerHBA constructor")
-        self.mapHBA = {}
         StorageHandler.__init__(self, storage_conf)
 
     def Create_SR(self):
@@ -2410,7 +2409,9 @@ class StorageHandlerHBA(StorageHandler):
         try:
             XenCertPrint("First use XAPI to get information for creating an SR.")
             listSCSIId = []
-            (retVal, listAdapters, listSCSIId) = StorageHandlerUtil.GetHBAInformation(self.session)
+            (retVal, listAdapters, listSCSIId) = StorageHandlerUtil. \
+                                               GetHBAInformation(self.session, \
+                                               self.storage_conf)
             if not retVal:                
                 raise Exception("   - Failed to get available HBA information on the host.")
             if len(listSCSIId) == 0:                
@@ -2507,17 +2508,14 @@ class StorageHandlerHBA(StorageHandler):
         totalCheckPoints = 4
         timeForIOTestsInSec = 0
         totalSizeInMiB = 0
-        
-        try:
-            # Generate a map of the HBAs that the user want to test against.
-            if self.storage_conf['adapters'] != None:                
-                for hba in self.storage_conf['adapters'].split(','):
-                    self.mapHBA[hba] = 1
 
-                # 1. Report the FC Host Adapters detected and the status of each physical port
+        try:
+            # 1. Report the FC Host Adapters detected and the status of each physical port
             # Run a probe on the host with type lvmohba, parse the xml output and extract the HBAs advertised
             Print("DISCOVERING AVAILABLE HARDWARE HBAS")
-            (retVal, listMaps, scsilist) = StorageHandlerUtil.GetHBAInformation(self.session)
+            (retVal, listMaps, scsilist) = StorageHandlerUtil. \
+                                           GetHBAInformation(self.session, \
+                                           self.storage_conf)
             if not retVal:                
                 raise Exception("   - Failed to get available HBA information on the host.")
             else:
@@ -2525,34 +2523,23 @@ class StorageHandlerHBA(StorageHandler):
            
             if len(listMaps) == 0:                    
                      raise Exception("   - No hardware HBAs found!")
- 
+
             checkPoint += 1
             first = True
-            prunedList = []
+
             for map in listMaps:                
-                # If the user has selected particular HBAs then remove the others from the list.
-                if len(self.mapHBA) != 0:
-                    if self.mapHBA.has_key(map['name']):
-                        prunedList.append(map)                    
-                else:
-                    prunedList.append(map)                    
-                    
                 if first:
                     for key in map.keys():
                         PrintOnSameLine("%-15s\t" % key)
                     PrintOnSameLine("\n")
                     first = False
-                    
+
                 for key in map.keys(): 
                     PrintOnSameLine("%-15s\t" % map[key])
                 PrintOnSameLine("\n")
-            
-            if len(prunedList) == 0:
-                displayOperationStatus(False)
-                raise Exception("   - No available HBAs selected for the functional tests. Please provide a comma separated list of one or more HBAs mentioned above.")
-            else:
-                displayOperationStatus(True)
-                checkPoint += 1 
+
+            displayOperationStatus(True)
+            checkPoint += 1 
                 
             # 2. Report the number of LUNs and the disk geometry for verification by user
             # take each host id and look into /dev/disk/by-scsibus/*-<host-id>*
@@ -2569,7 +2556,7 @@ class StorageHandlerHBA(StorageHandler):
             hostIdToLunList = {}
             # map from SCSI id -> list of devices
             scsiToTupleMap = {}
-            for map in prunedList:
+            for map in listMaps:
                 try:
                     (rVal, listLunInfo) = StorageHandlerUtil.GetLunInformation(map['id'])
                     if not rVal:                                                    
