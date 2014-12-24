@@ -351,12 +351,18 @@ def extract_xml_from_exception(e):
     return ','.join(str(e).split(',')[3:])
 
 # The returned structure are a list of portals, and a list of SCSIIds for the specified IQN. 
-def GetHBAInformation(session):
+def GetHBAInformation(session, storage_conf):
     try:
 	retVal = True
 	list = []
 	scsiIdList = []
 	device_config = {}
+	HBAFilter = {}
+
+	# Generate a map of the HBAs that the user want to test against.
+	if storage_conf['adapters'] != None:
+	    for hba in storage_conf['adapters'].split(','):
+			HBAFilter[hba] = 1
 	
 	try:
 	    session.xenapi.SR.probe(util.get_localhost_uuid(session), device_config, 'lvmohba')
@@ -380,15 +386,26 @@ def GetHBAInformation(session):
 		for tgt in TgtList:
 		    map = {}
 		    for node in tgt.childNodes:
-			map[node.nodeName] = node.firstChild.nodeValue
-	
-		    list.append(map)    
+			    map[node.nodeName] = node.firstChild.nodeValue
+		    if len(HBAFilter) != 0:
+			    if HBAFilter.has_key(map['host']):
+				    list.append(map)
+		    else:
+			    list.append(map)
 		
 		bdList = dom.getElementsByTagName("BlockDevice")
 		for bd in bdList:
 		    for node in bd.childNodes:
-			if node.nodeName == 'SCSIid':
-			    scsiIdList.append(node.firstChild.nodeValue)
+			    if node.nodeName == 'SCSIid':
+				    SCSIid = node.firstChild.nodeValue
+			    elif node.nodeName == 'adapter':
+				    adapter = ''.join(["host",node.firstChild.nodeValue])
+
+		    if len(HBAFilter) != 0:
+			    if HBAFilter.has_key(adapter):
+				    scsiIdList.append(SCSIid)
+		    else:
+			    scsiIdList.append(SCSIid)
 	
 		XenCertPrint("The HBA information list being returned is: %s" % list)
 	    except Exception, e:
