@@ -774,11 +774,14 @@ class StorageHandler:
     #
     #  SR related
     #       
-    def Create_PBD(self, sr_ref, pbd_device_config):
+    def Create_PBD(self, sr_ref, pbd_device_config, host_ref=""):
         try:
             XenCertPrint("Creating PBD")
             Fields = {}
-            Fields['host']=util.get_localhost_uuid(self.session)
+            if not host_ref:
+                Fields['host'] = util.get_localhost_uuid(self.session)
+            else:
+                Fields['host'] = host_ref
             Fields['device_config'] = pbd_device_config
             Fields['SR'] = sr_ref
             pbd_ref = self.session.xenapi.PBD.create(Fields)
@@ -913,7 +916,8 @@ class StorageHandler:
 
                 # attach the SR again
                 Print(">>>>     Attach the SR")
-                self.Plug_PBD(pbd)
+                for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
+                    self.Plug_PBD(pbd)
                 displayOperationStatus(True)
 
                 # make sure all the VDIs are created in metadata and match the information in XAPI
@@ -937,7 +941,8 @@ class StorageHandler:
 
                 # attach the SR
                 Print(">>>>     Attach the SR")
-                self.Plug_PBD(pbd)
+                for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
+                    self.Plug_PBD(pbd)
                 displayOperationStatus(True)
 
                 # make sure all the VDIs are created in metadata and match the information in XAPI
@@ -952,9 +957,11 @@ class StorageHandler:
 
                 # detach the SR
                 Print(">>>>     Detach the SR")
+                old_config = {}
                 for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
                     # save the device_config for pbd creation later
-                    device_config = self.session.xenapi.PBD.get_device_config(pbd)
+                    host = self.session.xenapi.PBD.get_host(pbd)
+                    old_config[host] = self.session.xenapi.PBD.get_device_config(pbd)
                     self.Unplug_PBD(pbd)
                     self.Destroy_PBD(pbd)
                 displayOperationStatus(True)
@@ -973,8 +980,9 @@ class StorageHandler:
 
                 # attach the SR
                 Print(">>>>     Attach the SR")
-                pbd = self.Create_PBD(self.sr_ref, device_config)
-                self.Plug_PBD(pbd)
+                for host,config in old_config.items():
+                    pbd = self.Create_PBD(self.sr_ref, config, host)
+                    self.Plug_PBD(pbd)
                 displayOperationStatus(True)
 
                 # scan the SR
@@ -1005,7 +1013,8 @@ class StorageHandler:
 
                 # attach the SR
                 Print(">>>>>        Attach the SR")
-                self.Plug_PBD(pbd)
+                for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
+                    self.Plug_PBD(pbd)
                 displayOperationStatus(True)
 
                 # the entries for the missing VDIs should be removed from the metadata and XAPI
@@ -1262,9 +1271,11 @@ class StorageHandler:
 
                 # detach the SR
                 Print(">>>>     Detach the SR")
+                old_config = {}
                 for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
                     # save the device_config for pbd creation later
-                    device_config = self.session.xenapi.PBD.get_device_config(pbd)
+                    host = self.session.xenapi.PBD.get_host(pbd)
+                    old_config[host] = self.session.xenapi.PBD.get_device_config(pbd)
                     self.Unplug_PBD(pbd)
                     self.Destroy_PBD(pbd)
                 displayOperationStatus(True)
@@ -1283,8 +1294,9 @@ class StorageHandler:
 
                 # attach the SR
                 Print(">>>>     Attach the SR")
-                pbd = self.Create_PBD(self.sr_ref, device_config)
-                self.Plug_PBD(pbd)
+                for host,config in old_config.items():
+                    pbd = self.Create_PBD(self.sr_ref, config, host)
+                    self.Plug_PBD(pbd)
                 displayOperationStatus(True)
 
                 # scan the SR
@@ -1528,7 +1540,8 @@ class StorageHandler:
                 
                 # attach the SR
                 Print(">>>>         Attach the SR")
-                self.Plug_PBD(pbd)
+                for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
+                    self.Plug_PBD(pbd)
                 displayOperationStatus(True)
                 
                 Print(">>>>         Make sure the name-label is updated in the metadata")
@@ -1549,7 +1562,8 @@ class StorageHandler:
                 
                 # attach the SR
                 Print(">>>>         Attach the SR")
-                self.Plug_PBD(pbd)
+                for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
+                    self.Plug_PBD(pbd)
                 displayOperationStatus(True)
                 
                 Print(">>>>         Make sure the name-description is updated in the metadata")
@@ -1570,7 +1584,8 @@ class StorageHandler:
                 
                 # attach the SR
                 Print(">>>>         Attach the SR")
-                self.Plug_PBD(pbd)
+                for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
+                    self.Plug_PBD(pbd)
                 displayOperationStatus(True)
                     
                 Print(">>>>         Make sure the name-label and name-description is updated in the metadata")
@@ -1593,7 +1608,8 @@ class StorageHandler:
                 
                 # attach the SR
                 Print(">>>>         Attach the SR")
-                self.Plug_PBD(pbd)
+                for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
+                    self.Plug_PBD(pbd)
                 displayOperationStatus(True)
                 
                 Print(">>>>         Make sure the name-label is updated in the metadata")
@@ -1615,7 +1631,8 @@ class StorageHandler:
                 
                 # attach the SR
                 Print(">>>>         Attach the SR")
-                self.Plug_PBD(pbd)
+                for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
+                    self.Plug_PBD(pbd)
                 displayOperationStatus(True)
                     
                 Print(">>>>         Make sure the name-description is updated in the metadata")
@@ -1637,7 +1654,8 @@ class StorageHandler:
                 
                 # attach the SR
                 Print(">>>>         Attach the SR")
-                self.Plug_PBD(pbd)
+                for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
+                    self.Plug_PBD(pbd)
                 displayOperationStatus(True)
                     
                 Print(">>>>         Make sure the name-label and name-description is updated in the metadata")
@@ -1994,7 +2012,8 @@ class StorageHandlerISCSI(StorageHandler):
 
                 # attach the SR
                 Print(">>>>>        Attach the SR")
-                self.Plug_PBD(pbd)
+                for pbd in self.session.xenapi.SR.get_PBDs(self.sr_ref):
+                    self.Plug_PBD(pbd)
                 displayOperationStatus(True)
 
                 # the entries for the missing VDIs should be removed from the metadata and XAPI
