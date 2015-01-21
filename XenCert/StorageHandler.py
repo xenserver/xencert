@@ -399,10 +399,6 @@ class StorageHandler:
                         checkPoint += 1
 
             Print("- Test succeeded.")
-
-            # If multipath was enabled by us, disable it, else continue.
-            if disableMP:
-                StorageHandlerUtil.disable_multipathing(self.session, util.get_localhost_uuid(self.session))
  
         except Exception, e:
             Print("- There was an exception while performing multipathing configuration tests.")
@@ -426,6 +422,10 @@ class StorageHandler:
             if sr_ref != None:
                 Print("      Destroy the SR.")
                 StorageHandlerUtil.DestroySR(self.session, sr_ref)
+
+            # If multipath was enabled by us, disable it, else continue.
+            if disableMP:
+                StorageHandlerUtil.disable_multipathing(self.session, util.get_localhost_uuid(self.session))
                 
             checkPoint += 1
                 
