@@ -49,6 +49,8 @@ speedOfCopy = ''
 pathsFailed = False
 failoverTime = 0
 
+RPCINFO_BIN = "/usr/sbin/rpcinfo"
+
 # simple tracer
 def report(predicate, condition):
     if predicate != condition:
@@ -632,6 +634,7 @@ class StorageHandler:
             displayOperationStatus(False)
 
         Print("   -> Disable multipathing on hosts. ")
+        Print(" ")
         for host in host_disable_MP_list:
             StorageHandlerUtil.disable_multipathing(self.session, host)
         
@@ -2743,16 +2746,32 @@ class StorageHandlerHBA(StorageHandler):
         StorageHandler.__del__(self)
 
 class StorageHandlerNFS(StorageHandler):
+
     def __init__(self, storage_conf):
         XenCertPrint("Reached StorageHandlerNFS constructor")
         self.server = storage_conf['server']
         self.serverpath = storage_conf['serverpath']        
         StorageHandler.__init__(self, storage_conf)
-        
-    def Create(self):
+
+    def getSupportedNFSVersions(self):
+        valid_nfs_versions = ['3', '4']
+        supported_versions = []
+        try:
+            ns = util.pread2([RPCINFO_BIN, "-t", "%s" % self.server, "nfs"])
+            for l in ns.strip().split("\n"):
+                if l.split()[3] in valid_nfs_versions:
+                    supported_versions.append(l.split()[3])
+
+            return supported_versions
+        except:
+            XenCertPrint("Unable to obtain list of supported NFS versions")
+            raise
+
+    def Create(self, nfsv='3'):
         device_config = {}
         device_config['server'] = self.server
         device_config['serverpath'] = self.serverpath
+        device_config['nfsversion'] = nfsv
         retVal = True
         try:
             # Create an SR
@@ -2784,100 +2803,183 @@ class StorageHandlerNFS(StorageHandler):
     def FunctionalTests(self):
         retVal = True
         checkPoints = 0
-        totalCheckPoints = 5
+        totalCheckPoints = 0
         testFileCreated = False
         testDirCreated = False
         mountCreated = False
 
         mountpoint = '/mnt/XenCertTest-' + commands.getoutput('uuidgen') 
-        try:
-            # 1. Display various exports from the server for verification by the user. 
-            Print("DISCOVERING EXPORTS FROM THE SPECIFIED TARGET")
-            Print(">> This test probes the specified NFS target and displays the ")
-            Print(">> various paths exported for verification by the user. ")
+        nfs_versions = self.getSupportedNFSVersions()
+        for nfsv in nfs_versions:
+            Print("Using NFSVersion: %s" % nfsv)
+            totalCheckPoints += 5
             try:
-                cmd = [nfs.SHOWMOUNT_BIN, "--no-headers", "-e", self.storage_conf['server']]
-                list =  util.pread2(cmd).split('\n')
-                if len(list) > 0:
-                    Print("   %-50s" % 'Exported Path')
-                for val in list:
-                    if len(val.split()) > 0:
-                        Print("   %-50s" % val.split()[0])
-                displayOperationStatus(True)
-                checkPoints += 1
-            except Exception, e:
-                Print("   - Failed to display exported paths for server: %s. Exception: %s" % (self.storage_conf['server'], str(e)))
-                raise e
-                
-            # 2. Verify NFS target by mounting as local directory
-            Print("VERIFY NFS TARGET PARAMETERS")
-            Print(">> This test attempts to mount the export path specified ")
-            Print(">> as a local directory. ")
-            try:                
-                util.makedirs(mountpoint, 755)                
-                nfs.soft_mount(mountpoint, self.storage_conf['server'], self.storage_conf['serverpath'], 'tcp')
-                mountCreated = True
-                displayOperationStatus(True)
-                checkPoints += 1
-            except Exception, e:                
-                raise Exception("   - Failed to mount exported path: %s on server: %s, error: %s" % (self.storage_conf['server'], self.storage_conf['serverpath'], str(e)))       
-            
-            # 2. Create directory and execute Filesystem IO tests
-            Print("CREATE DIRECTORY AND PERFORM FILESYSTEM IO TESTS.")
-            Print(">> This test creates a directory on the locally mounted path above")
-            Print(">> and performs some filesystem read write operations on the directory.")
-            try:
-                testdir = os.path.join(mountpoint, 'XenCertTestDir-%s' % commands.getoutput('uuidgen'))
+                # 1. Display various exports from the server for verification by the user. 
+                Print("DISCOVERING EXPORTS FROM THE SPECIFIED TARGET")
+                Print(">> This test probes the specified NFS target and displays the ")
+                Print(">> various paths exported for verification by the user. ")
                 try:
-                    os.mkdir(testdir, 755)
-                except Exception,e:                    
-                    raise Exception("Exception creating directory: %s" % str(e))
-                testDirCreated = True
-                testfile = os.path.join(testdir, 'XenCertTestFile-%s' % commands.getoutput('uuidgen'))
-                cmd = ['dd', 'if=/dev/zero', 'of=%s' % testfile, 'bs=1M', 'count=1', 'oflag=direct']
-                (rc, stdout, stderr) = util.doexec(cmd, '')
-                testFileCreated = True
-                if rc != 0:                    
-                    raise Exception(stderr)
-                displayOperationStatus(True)
-                checkPoints += 1
-            except Exception, e:
-                Print("   - Failed to perform filesystem IO tests.")
-                raise e        
+                    cmd = [nfs.SHOWMOUNT_BIN, "--no-headers", "-e", self.storage_conf['server']]
+                    list =  util.pread2(cmd).split('\n')
+                    if len(list) > 0:
+                        Print("   %-50s" % 'Exported Path')
+                    for val in list:
+                        if len(val.split()) > 0:
+                            Print("   %-50s" % val.split()[0])
+                    displayOperationStatus(True)
+                    checkPoints += 1
+                except Exception, e:
+                    Print("   - Failed to display exported paths for server: %s. Exception: %s" % (self.storage_conf['server'], str(e)))
+                    raise e
+                
+                # 2. Verify NFS target by mounting as local directory
+                Print("VERIFY NFS TARGET PARAMETERS")
+                Print(">> This test attempts to mount the export path specified ")
+                Print(">> as a local directory. ")
+                try:
+                    util.makedirs(mountpoint, 755)
+                    nfs.soft_mount(mountpoint, self.storage_conf['server'], self.storage_conf['serverpath'], 'tcp', 0, nfsv)
+                    mountCreated = True
+                    displayOperationStatus(True)
+                    checkPoints += 1
+                except Exception, e:
+                    raise Exception("   - Failed to mount exported path: %s on server: %s, error: %s" % (self.storage_conf['server'], self.storage_conf['serverpath'], str(e)))
             
-            # 3. Report Filesystem target space parameters for verification by user
-            Print("REPORT FILESYSTEM TARGET SPACE PARAMETERS FOR VERIFICATION BY THE USER")
-            try:
-                Print("  - %-20s: %s" % ('Total space', util.get_fs_size(testdir)))
-                Print("  - %-20s: %s" % ('Space utilization',util.get_fs_utilisation(testdir)))
-                displayOperationStatus(True)
-                checkPoints += 1
-            except Exception, e:
-                Print("   - Failed to report filesystem space utilization parameters. " )
-                raise e 
-        except Exception, e:
-            Print("   - Functional testing failed with error: %s" % str(e))
-            retVal = False   
+                # 2. Create directory and execute Filesystem IO tests
+                Print("CREATE DIRECTORY AND PERFORM FILESYSTEM IO TESTS.")
+                Print(">> This test creates a directory on the locally mounted path above")
+                Print(">> and performs some filesystem read write operations on the directory.")
+                try:
+                    testdir = os.path.join(mountpoint, 'XenCertTestDir-%s' % commands.getoutput('uuidgen'))
+                    try:
+                        os.mkdir(testdir, 755)
+                    except Exception,e:
+                        raise Exception("Exception creating directory: %s" % str(e))
+                    testDirCreated = True
+                    testfile = os.path.join(testdir, 'XenCertTestFile-%s' % commands.getoutput('uuidgen'))
+                    cmd = ['dd', 'if=/dev/zero', 'of=%s' % testfile, 'bs=1M', 'count=1', 'oflag=direct']
+                    (rc, stdout, stderr) = util.doexec(cmd, '')
+                    testFileCreated = True
+                    if rc != 0:
+                        raise Exception(stderr)
+                    displayOperationStatus(True)
+                    checkPoints += 1
+                except Exception, e:
+                    Print("   - Failed to perform filesystem IO tests.")
+                    raise e
 
-        # Now perform some cleanup here
-        try:
-            if testFileCreated:
-                os.remove(testfile)
-            if testDirCreated:
-                os.rmdir(testdir)
-            if mountCreated:
-                nfs.unmount(mountpoint, True)
-            checkPoints += 1
-        except Exception, e:
-            Print("   - Failed to cleanup after NFS functional tests, please delete the following manually: %s, %s, %s. Exception: %s" % (testfile, testdir, mountpoint, str(e)))
+                # 3. Report Filesystem target space parameters for verification by user
+                Print("REPORT FILESYSTEM TARGET SPACE PARAMETERS FOR VERIFICATION BY THE USER")
+                try:
+                    Print("  - %-20s: %s" % ('Total space', util.get_fs_size(testdir)))
+                    Print("  - %-20s: %s" % ('Space utilization',util.get_fs_utilisation(testdir)))
+                    displayOperationStatus(True)
+                    checkPoints += 1
+                except Exception, e:
+                    Print("   - Failed to report filesystem space utilization parameters. " )
+                    raise e 
+            except Exception, e:
+                Print("   - Functional testing failed with error: %s" % str(e))
+                retVal = False   
+
+            # Now perform some cleanup here
+            try:
+                if testFileCreated:
+                    os.remove(testfile)
+                if testDirCreated:
+                    os.rmdir(testdir)
+                if mountCreated:
+                    nfs.unmount(mountpoint, True)
+                checkPoints += 1
+            except Exception, e:
+                Print("   - Failed to cleanup after NFS functional tests, please delete the following manually: %s, %s, %s. Exception: %s" % (testfile, testdir, mountpoint, str(e)))
+
+        return (retVal, checkPoints, totalCheckPoints)
+
+    def ControlPathStressTests(self):
+        sr_ref = None 
+        retVal = True
+        checkPoint = 0
+        totalCheckPoints = 0
+        pbdPlugUnplugCount = 10
+
+        nfs_versions = self.getSupportedNFSVersions()
+        for nfsv in nfs_versions:
+            Print("Using NFSVersion: %s" % nfsv)
+            totalCheckPoints += 5
+            try:
+                Print("SR CREATION, PBD PLUG-UNPLUG AND SR DELETION TESTS")
+                Print(">> These tests verify the control path by creating an SR, unplugging")
+                Print("   and plugging the PBDs and destroying the SR in multiple iterations.")
+                Print("")
             
-        return (retVal, checkPoints, totalCheckPoints)   
-    
+                for i in range(0, 10):
+                    Print("   -> Iteration number: %d" % i)
+                    totalCheckPoints += (2 + pbdPlugUnplugCount)
+                    (retVal, sr_ref, device_config) = self.Create(nfsv)
+                    if not retVal:                    
+                        raise Exception("      SR creation failed.")
+                    else:
+                        checkPoint += 1
+                
+                    # Plug and unplug the PBD over multiple iterations
+                    checkPoint += StorageHandlerUtil.PlugAndUnplugPBDs(self.session, sr_ref, pbdPlugUnplugCount)
+                    
+                    # destroy the SR
+                    Print("      Destroy the SR.")
+                    StorageHandlerUtil.DestroySR(self.session, sr_ref)
+                    checkPoint += 1
+                    
+                Print("SR SPACE AVAILABILITY TEST")
+                Print(">> This test verifies that all the free space advertised by an SR")
+                Print("   is available and writable.")
+                Print("")
+
+                # Create and plug the SR and create a VDI of the maximum space available. Plug the VDI into Dom0 and write data across the whole virtual disk.
+                Print("   Create a new SR.")
+                try:
+                    (retVal, sr_ref, device_config) = self.Create(nfsv)
+                    if not retVal:                    
+                        raise Exception("      SR creation failed.")
+                    else:
+                        checkPoint += 1
+
+                    XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config))
+                    displayOperationStatus(True)
+                except Exception, e:
+                    displayOperationStatus(False)
+                    raise e
+
+                (checkPointDelta, retVal) = StorageHandlerUtil.PerformSRControlPathTests(self.session, sr_ref)
+                if not retVal:
+                    raise Exception("PerformSRControlPathTests failed. Please check the logs for details.")
+                else:
+                    checkPoint += checkPointDelta
+
+            except Exception, e: 
+                Print("- Control tests failed with an exception.")
+                Print("  Exception: %s" % str(e))
+                displayOperationStatus(False)
+                retVal = False
+
+            try:
+                # Try cleaning up here
+                if sr_ref != None:
+                    StorageHandlerUtil.DestroySR(self.session, sr_ref)
+                    checkPoint += 1
+            except Exception, e:
+                Print("- Could not cleanup the objects created during testing, please destroy the SR manually. Exception: %s" % str(e))
+                displayOperationStatus(False)
+
+            XenCertPrint("Checkpoints: %d, totalCheckPoints: %s" % (checkPoint, totalCheckPoints))
+        
+        return (retVal, checkPoint, totalCheckPoints)
+
     def MPConfigVerificationTests(self):
         return (True, 1, 1)
-        
+
     def PoolTests(self):
-        return (True, 1, 1) 
+        return (True, 1, 1)
 
 class StorageHandlerISL(StorageHandler):
     def __init__(self, storage_conf):
