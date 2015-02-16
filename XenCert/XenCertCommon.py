@@ -34,6 +34,11 @@ __nfs_args__ = [
     ["server",          "server name/IP addr", " : ", None,        "required", "-n", ""   ],
     ["serverpath",      "exported path", " : ", None,        "required", "-e", ""     ] ]
 
+__cifs_args__ = [
+    ["server",   "Full path to share root on CIFS server",             " : ", None, "required", "-r", "" ],
+    ["username", "The username to be used during CIFS authentication", " : ", None, "required", "-y", "" ],
+    ["password", "The password to be used during CIFS authentication", " : ", None, "required", "-p", "" ] ]
+
 __lvmohba_args__ = [
     ["adapters",       "comma separated list of HBAs to test against", " : ", None,        "optional", "-a", ""   ] ]
 
@@ -73,6 +78,12 @@ def parse_args(version_string):
            add_help_option=False)
     
     for element in __nfs_args__:
+        opt.add_option(element[5], element[6],
+                       default=element[3],
+                       help=element[1],
+                       dest=element[0])
+
+    for element in __cifs_args__:
         opt.add_option(element[5], element[6],
                        default=element[3],
                        help=element[1],
@@ -122,8 +133,8 @@ def store_configuration(g_storage_conf, options):
 
 def valid_arguments(options, g_storage_conf):
     """ validate arguments """
-    if not options.storage_type in ["lvmohba", "nfs", "lvmoiscsi", "isl"]:
-        Print("Error: storage type (lvmohba, nfs, isl or lvmoiscsi) is required")
+    if not options.storage_type in ["lvmohba", "nfs", "cifs", "lvmoiscsi", "isl"]:
+        Print("Error: storage type (lvmohba, nfs, cifs, isl or lvmoiscsi) is required")
         return 0
 
     for element in __commonparams__:
@@ -139,6 +150,8 @@ def valid_arguments(options, g_storage_conf):
 
     if options.storage_type == "nfs":
         subargs = __nfs_args__
+    elif options.storage_type == "cifs":
+        subargs = __cifs_args__
     elif options.storage_type == "lvmohba":
         subargs = __lvmohba_args__
     elif options.storage_type == "isl":
@@ -170,7 +183,10 @@ def GetStorageHandler(g_storage_conf):
         
     if g_storage_conf["storage_type"] == "nfs":
         return StorageHandler.StorageHandlerNFS(g_storage_conf)
-    
+
+    if g_storage_conf["storage_type"] == "cifs":
+        return StorageHandler.StorageHandlerCIFS(g_storage_conf)
+ 
     if g_storage_conf["storage_type"] == "isl":
         return StorageHandler.StorageHandlerISL(g_storage_conf)
 
@@ -191,6 +207,11 @@ def DisplayiSCSIOptions():
 def DisplayNfsOptions():
     Print(" Storage type nfs:\n")
     for item in __nfs_args__:
+        printHelpItem(item)
+
+def DisplayCIFSOptions():
+    Print(" Storage type cifs:\n")
+    for item in __cifs_args__:
         printHelpItem(item)
   
 def DisplayHBAOptions():
@@ -214,6 +235,8 @@ def DisplayStorageSpecificUsage(storage_type):
         DisplayiSCSIOptions()
     elif storage_type == 'nfs':
         DisplayNfsOptions()
+    elif storage_type == 'cifs':
+        DisplayCIFSOptions()
     elif storage_type == 'lvmohba':
         DisplayHBAOptions()
     elif storage_type == 'isl':
@@ -222,6 +245,8 @@ def DisplayStorageSpecificUsage(storage_type):
         DisplayiSCSIOptions()
         Print("")
         DisplayNfsOptions()
+        Print("")
+        DisplayCIFSOptions()
         Print("")
         DisplayHBAOptions()        
         Print("")
