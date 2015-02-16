@@ -2981,6 +2981,197 @@ class StorageHandlerNFS(StorageHandler):
     def PoolTests(self):
         return (True, 1, 1)
 
+
+class StorageHandlerCIFS(StorageHandler):
+
+    def __init__(self, storage_conf):
+        XenCertPrint("Reached StorageHandlerCIFS constructor")
+        self.server = storage_conf['server']
+        self.username = storage_conf['username']
+        self.password = storage_conf['password']
+        StorageHandler.__init__(self, storage_conf)
+
+    def Create(self):
+        device_config = {}
+        device_config['server'] = self.server
+        device_config['username'] = self.username
+        device_config['password'] = self.password
+        retVal = True
+        try:
+            # Create an SR on the CIFS server/share provided.
+            Print("      Creating the SR.")
+            XenCertPrint("The SR create parameters are %s, %s" % (util.get_localhost_uuid(self.session), device_config))
+            sr_ref = self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), device_config, '0', 'XenCertTestSR', '', 'cifs', '',False, {})
+            XenCertPrint("Created the SR %s using device_config %s" % (sr_ref, device_config))
+            displayOperationStatus(True)
+
+        except Exception, e:
+            displayOperationStatus(False)
+            raise Exception(("   - Failed to create SR. Exception: %s" % str(e)))
+
+        if sr_ref == None:
+            displayOperationStatus(False)
+            retVal = False
+
+        return (retVal, sr_ref, device_config)
+
+    def __del__(self):
+        XenCertPrint("Reached StorageHandlerCIFS destructor")
+        StorageHandler.__del__(self)
+
+    def MetaDataTests(self):
+        Print("MetaDataTests not applicable to CIFS SR type.")
+        return False
+
+    def PoolTests(self):
+        return (True, 1, 1)
+
+    def MPConfigVerificationTests(self):
+        return (True, 1, 1)
+
+    def FunctionalTests(self):
+        retVal = True
+        sr_ref = None
+        _trash = None
+        checkPoints = 0
+        totalCheckPoints = 0
+        testFileCreated = False
+        testDirCreated = False
+        testSRCreated = False
+
+        totalCheckPoints += 3
+        try:
+            # 1. Create directory and execute Filesystem IO tests
+            Print("CREATE CIFS SR AND PERFORM FILESYSTEM IO TESTS.")
+            Print(">> This test creates a CIFS SR and performs filesystem ")
+            Print(">> read write operations on the mounted directory.")
+            try:
+                # Create and plug SR
+                XenCertPrint( " Create CIFS SR.")
+                (retVal, sr_ref, _trash) = self.Create()
+                if not retVal:
+                    raise Exception("      SR creation failed.")
+                testSRCreated = True
+                testdir = "/var/run/sr-mount/%s/XenCertTestDir-%s" % (self.session.xenapi.SR.get_uuid(sr_ref), commands.getoutput('uuidgen'))
+
+                try:
+                    os.mkdir(testdir, 755)
+                except Exception,e:
+                    raise Exception("Exception creating directory: %s" % str(e))
+                testDirCreated = True
+                testfile = os.path.join(testdir, 'XenCertTestFile-%s' % commands.getoutput('uuidgen'))
+                cmd = ['dd', 'if=/dev/zero', 'of=%s' % testfile, 'bs=1M', 'count=1', 'oflag=direct']
+                (rc, stdout, stderr) = util.doexec(cmd, '')
+                testFileCreated = True
+                if rc != 0:
+                    raise Exception(stderr)
+                displayOperationStatus(True)
+                checkPoints += 1
+            except Exception, e:
+                Print("   - Failed to perform filesystem IO tests.")
+                raise e
+
+            # 2. Report Filesystem target space parameters for verification by user
+            Print("REPORT FILESYSTEM TARGET SPACE PARAMETERS FOR VERIFICATION BY THE USER")
+            try:
+                Print("  - %-20s: %s" % ('Total space', util.get_fs_size(testdir)))
+                Print("  - %-20s: %s" % ('Space utilization',util.get_fs_utilisation(testdir)))
+                displayOperationStatus(True)
+                checkPoints += 1
+            except Exception, e:
+                Print("   - Failed to report filesystem space utilization parameters. " )
+                raise e
+        except Exception, e:
+            Print("   - Functional testing failed with error: %s" % str(e))
+            retVal = False
+
+        # Now perform some cleanup here
+        if sr_ref:
+            try:
+                if testFileCreated:
+                    os.remove(testfile)
+                if testDirCreated:
+                    os.rmdir(testdir)
+                if testSRCreated:
+                    StorageHandlerUtil.DestroySR(self.session, sr_ref)
+                checkPoints += 1
+            except Exception, e:
+                Print("   - Failed to cleanup after CIFS functional tests, please delete the following manually: %s, %s, %s. Exception: %s" % (testfile, testdir, mountpoint, str(e)))
+
+        return (retVal, checkPoints, totalCheckPoints)
+
+    def ControlPathStressTests(self):
+        sr_ref = None
+        retVal = True
+        checkPoint = 0
+        totalCheckPoints = 0
+        pbdPlugUnplugCount = 10
+
+        totalCheckPoints += 5
+        try:
+            Print("SR CREATION, PBD PLUG-UNPLUG AND SR DELETION TESTS")
+            Print(">> These tests verify the control path by creating an SR, unplugging")
+            Print("   and plugging the PBDs and destroying the SR in multiple iterations.")
+            Print("")
+
+            for i in range(0, 10):
+                Print("   -> Iteration number: %d" % i)
+                totalCheckPoints += (2 + pbdPlugUnplugCount)
+                (retVal, sr_ref, device_config) = self.Create()
+                if not retVal:
+                    raise Exception("      SR creation failed.")
+                else:
+                    checkPoint += 1
+
+                # Plug and unplug the PBD over multiple iterations
+                checkPoint += StorageHandlerUtil.PlugAndUnplugPBDs(self.session, sr_ref, pbdPlugUnplugCount)
+
+                # destroy the SR
+                Print("      Destroy the SR.")
+                StorageHandlerUtil.DestroySR(self.session, sr_ref)
+                checkPoint += 1
+
+            # Create and plug the SR and create a VDI of the maximum space available. Plug the VDI into Dom0 and write data across the whole virtual disk.
+            Print("   Create a new SR.")
+            try:
+                (retVal, sr_ref, device_config) = self.Create()
+                if not retVal:
+                    raise Exception("      SR creation failed.")
+                else:
+                    checkPoint += 1
+
+                XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config))
+                displayOperationStatus(True)
+            except Exception, e:
+                displayOperationStatus(False)
+                raise e
+
+            (checkPointDelta, retVal) = StorageHandlerUtil.PerformSRControlPathTests(self.session, sr_ref)
+            if not retVal:
+                raise Exception("PerformSRControlPathTests failed. Please check the logs for details.")
+            else:
+                checkPoint += checkPointDelta
+
+        except Exception, e:
+            Print("- Control tests failed with an exception.")
+            Print("  Exception: %s" % str(e))
+            displayOperationStatus(False)
+            retVal = False
+
+        try:
+            # Try cleaning up here
+            if sr_ref != None:
+                StorageHandlerUtil.DestroySR(self.session, sr_ref)
+                checkPoint += 1
+        except Exception, e:
+            Print("- Could not cleanup the objects created during testing, please destroy the SR manually. Exception: %s" % str(e))
+            displayOperationStatus(False)
+
+        XenCertPrint("Checkpoints: %d, totalCheckPoints: %s" % (checkPoint, totalCheckPoints))
+
+        return (retVal, checkPoint, totalCheckPoints)
+
+
 class StorageHandlerISL(StorageHandler):
     def __init__(self, storage_conf):
         XenCertPrint("Reached StorageHandlerISL constructor")
