@@ -915,66 +915,46 @@ def _find_LUN(svid):
         XenCertPrint("DEBUG: device path : %s"%(device))
         return [device]
 
-def WriteDataToVDI(session, vdi_ref, startSec, endSec, skipLevel=0, zeroOut=False, full=False):
-    XenCertPrint("WriteDataToVDI(vdi_ref=%s, startSec=%s, endSec=%s, skipLevel=%s, full=%s ->Enter)"%(vdi_ref, startSec, endSec, skipLevel, full))
+def WriteDataToVDI(session, vbd_ref, startSec, endSec):
+    XenCertPrint('WriteDataToVDI(vbd_ref=%s, startSec=%s, endSec=%s, ->Enter)'\
+             % (vbd_ref, startSec, endSec))
     try:
-        svid = session.xenapi.VDI.get_sm_config(vdi_ref)['SVID']
-        device = _find_LUN(svid)[0]
+        device = os.path.join('/dev/', session.xenapi.VBD.get_device(vbd_ref))
 
-        XenCertPrint("about to write onto device: %s"%device)
+        XenCertPrint('about to write onto device: %s' % device)
 
-        if zeroOut:
-            pattern = BUF_ZEROS
-        else:
-            pattern = BUF_PATTERN
-
-        f = open(device, "w+")
+        f = open(device, 'w+')
         while startSec <= endSec:
             f.seek(startSec * SECTOR_SIZE)
-            if full:
-                count = 0
-                while count < SECTOR_SIZE:
-                    f.write(pattern)
-                    count += len(pattern)
-            else:
-                f.write(pattern)
-            startSec += 1 + skipLevel
+            f.write(BUF_PATTERN)
+            startSec += 1
         f.close()
-    except Exception,e:
-        raise Exception("Writing data into VDI:%s Failed. Error:%s"%(vdi_ref,e))
+    except Exception, e:
+        raise Exception('Writing data into VDI:%s Failed. Error: %s' \
+                % (vbd_ref, e))
 
-    XenCertPrint("WriteDataToVDI() -> Exit")
+    XenCertPrint('WriteDataToVDI() -> Exit')
 
-def VerifyDataOnVDI(session, vdi_ref, startSec, endSec, skipLevel=0, zeroed=False, full=False):
-    XenCertPrint("VerifyDataOnVDI(vdi_ref=%s, startSec=%s, endSec=%s, skipLevel=%s, full=%s ->Enter)"%(vdi_ref, startSec, endSec, skipLevel, full))
+def VerifyDataOnVDI(session, vbd_ref, startSec, endSec):
+    XenCertPrint('VerifyDataOnVDI(vdi_ref=%s, startSec=%s, endSec=%s ->Enter)'\
+            % (vbd_ref, startSec, endSec))
     try:
-        svid = session.xenapi.VDI.get_sm_config(vdi_ref)['SVID']
-        device = _find_LUN(svid)[0]
+        device = os.path.join('/dev/', session.xenapi.VBD.get_device(vbd_ref))
 
-        XenCertPrint("about to read from device: %s"%device)
+        XenCertPrint('about to read from device: %s' % device)
 
-        if zeroed:
-            expect = BUF_ZEROS 
-        else:
-            expect = BUF_PATTERN
+        expect = BUF_PATTERN
 
-        f = open(device, "r+")
+        f = open(device, 'r+')
         while startSec <= endSec:
             f.seek(startSec * SECTOR_SIZE)
-            if full:
-                count = 0
-                while count < SECTOR_SIZE:
-                    actual = f.read(len(expect))
-                    if actual != expect:
-                        raise Exception("expected:%s <> actual:%s"%(expect, actual))
-                    count += len(expect)
-            else:
-                actual =f.read(len(expect))
-                if actual != expect:
-                    raise Exception("expected:%s <> actual:%s"%(expect, actual))
-            startSec += 1 + skipLevel
+            actual = f.read(len(expect))
+            if actual != expect:
+                raise Exception('expected:%s <> actual:%s' % (expect, actual))
+            startSec += 1
         f.close()
-    except Exception,e:
-        raise Exception("Verification of data in VDI:%s Failed. Error:%s"%(vdi_ref,e))
+    except Exception, e:
+        raise Exception('Verification of data in VDI:%s Failed. Error:%s'\
+                % (vbd_ref, e))
 
-    XenCertPrint("VerifyDataOnVDI() -> Exit")
+    XenCertPrint('VerifyDataOnVDI() -> Exit')
