@@ -734,11 +734,10 @@ class StorageHandler:
         XenCertPrint("Resize VDI")
         try:
             self.session.xenapi.VDI.resize(vdi_ref, str(size))
-            return True
         except Exception, e:
             XenCertPrint("Failed to Resize VDI. Exception: %s" % str(e))
-            return False
-       
+            raise
+
     def Snapshot_VDI(self, vdi_ref):
         XenCertPrint("Snapshot VDI")
         options = {}
@@ -3168,5 +3167,107 @@ class StorageHandlerCIFS(StorageHandler):
             displayOperationStatus(False)
 
         XenCertPrint("Checkpoints: %d, totalCheckPoints: %s" % (checkPoint, totalCheckPoints))
+
+        return (retVal, checkPoint, totalCheckPoints)
+
+    def DataIntegrityTests(self):
+        retVal = None
+        checkPoint = 0
+        totalCheckPoints = 11
+
+        vm_uuid = StorageHandlerUtil._get_localhost_uuid()
+        XenCertPrint("Got vm_uuid as %s" % vm_uuid)
+        vm_ref = self.session.xenapi.VM.get_by_uuid(vm_uuid)
+        sr_ref = None
+        vdi_ref = None
+        vbd_ref = None
+
+        try:
+            #1) Create SR
+            (retVal, sr_ref, dconf) = self.Create()
+            Print("Created SR")
+            checkPoint += 1
+
+            #2) Create 4GB VDI in SR
+            # XXX: Make Create_VDI() return vdi_ref on success and raise an
+            #      exception on failure. It is 'poorly implemented' atm :)
+            (retVal, vdi_ref) = self.Create_VDI(
+                    sr_ref,
+                    4 * StorageHandlerUtil.GiB)
+            if not retVal:
+                raise Exception('Error in VDI creation: %s' % vdi_ref)
+            Print("Created 4GB VDI")
+            checkPoint += 1
+
+            #3) Attach VDI to dom0
+            vbd_ref = StorageHandlerUtil.Attach_VDI(self.session, vdi_ref,
+                    vm_ref)
+            Print("Attached the VDI to dom0")
+            checkPoint += 1
+
+            #4) Write known pattern to VDI
+            StorageHandlerUtil.WriteDataToVDI(self.session, vbd_ref, 0, 3)
+            Print("Wrote data to VDI")
+            checkPoint += 1
+
+            #5) Detach VDI
+            StorageHandlerUtil.Detach_VDI(self.session, vbd_ref)
+            Print("Detached from dom0")
+            checkPoint += 1
+
+            #6) Resize VDI to 8GB
+            self.Resize_VDI(vdi_ref, 8 * StorageHandlerUtil.GiB)
+            Print("Resized the VDI to 8GB")
+            checkPoint += 1
+
+            #7) Attach VDI to dom0
+            vbd_ref = StorageHandlerUtil.Attach_VDI(self.session, vdi_ref,
+                    vm_ref)
+            Print("VDI attached again to Dom0")
+            checkPoint += 1
+
+            #8) Write known pattern to second 4GB chunk
+            StorageHandlerUtil.WriteDataToVDI(self.session, vbd_ref, 4, 7)
+            Print("Wrote data onto grown portion of the VDI")
+            checkPoint += 1
+
+            #9) Detach VDI
+            StorageHandlerUtil.Detach_VDI(self.session, vbd_ref)
+            Print("Detached from dom0")
+            checkPoint += 1
+
+            #10) Reattach VDI to dom0
+            vbd_ref = StorageHandlerUtil.Attach_VDI(self.session, vdi_ref,
+                    vm_ref)
+            Print("VDI attached again to Dom0")
+            checkPoint += 1
+
+            #11) Validate pattern on first and second 4GB chunks
+            StorageHandlerUtil.VerifyDataOnVDI(self.session, vbd_ref, 0, 7)
+            Print("Verified data on complete VDI")
+            checkPoint += 1
+
+        except Exception as e:
+            Print("Exception in CIFS Data Integrity tests: %s" % e)
+            retVal = False
+        finally:
+            # Cleanup here and return
+            try:
+                if checkPoint in {3, 4, 7, 8, 10, 11}:
+                    StorageHandlerUtil.Detach_VDI(self.session, vbd_ref)
+                    Print('VDI successfully detached.')
+                if checkPoint > 1:
+                    self.Destroy_VDI(vdi_ref)
+                    Print('VDI successfully destroyed.')
+                if checkPoint:
+                    self.Destroy_SR(sr_ref)
+                    Print('SR successfully destroyed.')
+
+                Print('Cleanup completed successfully.')
+
+            except Exception as e:
+                Print('Cleanup failed. Error: %s\nUser has to manually detach '
+                      'and delete VDI with name-label "XenCertVDI-######" and '
+                      'SR with name-label "XenCertTestSR"' % e)
 
         return (retVal, checkPoint, totalCheckPoints)

@@ -564,52 +564,51 @@ def CreateMaxSizeVDIAndVBD(session, sr_ref):
 
 def Attach_VDI(session, vdi_ref, vm_ref):
     vbd_ref = None
-    retVal = True
-    
-    try:
-	Print("   Create a VBD on the VDI and plug it into VM requested")
-	freedevs = session.xenapi.VM.get_allowed_VBD_devices(vm_ref)
-	XenCertPrint("Got free devs as %s" % freedevs)
-	if not len(freedevs):		
-            XenCertPrint("No free devs found for VM: %s!" % vm_ref)
-            return False
-	XenCertPrint("Allowed devs: %s (using %s)" % (freedevs,freedevs[0]))
 
-	# Populate VBD args
-        args={}
+    try:
+        Print("   Create a VBD on the VDI and plug it into VM requested")
+        freedevs = session.xenapi.VM.get_allowed_VBD_devices(vm_ref)
+        XenCertPrint("Got free devs as %s" % freedevs)
+        if not len(freedevs):
+            err_str = "No free devs found for VM: %s!" % vm_ref
+            XenCertPrint(err_str)
+            raise Exception(err_str)
+        XenCertPrint("Allowed devs: %s (using %s)" % (freedevs, freedevs[0]))
+
+        # Populate VBD args
+        args = {}
         args['VM'] = vm_ref
         args['VDI'] = vdi_ref
-	args['userdevice'] = freedevs[0]
-	args['bootable'] = False
-	args['mode'] = 'RW'
-	args['type'] = 'Disk'
-	args['unpluggable'] = True 
-	args['empty'] = False
+        args['userdevice'] = freedevs[0]
+        args['bootable'] = False
+        args['mode'] = 'RW'
+        args['type'] = 'Disk'
+        args['unpluggable'] = True
+        args['empty'] = False
         args['other_config'] = {}
         args['qos_algorithm_type'] = ''
         args['qos_algorithm_params'] = {}
         XenCertPrint("The VBD create parameters are %s" % args)
+
         vbd_ref = session.xenapi.VBD.create(args)
-        XenCertPrint("Created new VBD %s" % vbd_ref)
         session.xenapi.VBD.plug(vbd_ref)
+        XenCertPrint("Created new VBD %s" % vbd_ref)
+
+        return vbd_ref
 
     except Exception, e:
-	Print("   Exception Creating VBD and plugging it into VM: %s" % vm_ref)
-	return False
-    return (retVal, vbd_ref)
+        Print("   Exception Creating VBD and plugging it into VM: %s" % vm_ref)
+        raise
 
-def Detach_VDI(session, vdi_ref):
+def Detach_VDI(session, vbd_ref):
     try:
-        vbd_ref = session.xenapi.VDI.get_VBDs(vdi_ref)[0]
-        XenCertPrint("vbd_ref is %s"%vbd_ref)
-        if vbd_ref != None:
-            session.xenapi.VBD.unplug(vbd_ref)
-            XenCertPrint("Unplugged VBD %s" % vbd_ref)
-            session.xenapi.VBD.destroy(vbd_ref)
-            XenCertPrint("Destroyed VBD %s" % vbd_ref)
-    except Exception,e:
-        raise e
-    
+        session.xenapi.VBD.unplug(vbd_ref)
+        XenCertPrint("Unplugged VBD %s" % vbd_ref)
+        session.xenapi.VBD.destroy(vbd_ref)
+        XenCertPrint("Destroyed VBD %s" % vbd_ref)
+    except Exception as e:
+        raise Exception('VDI detach failed. Error: %s' % e)
+
 def FindTimeToWriteData(devicename, sizeInMiB):
     ddOutFile = 'of=' + devicename
     XenCertPrint("Now copy %dMiB data from /dev/zero to this device and record the time taken to copy it." % sizeInMiB)
@@ -923,12 +922,11 @@ def WriteDataToVDI(session, vbd_ref, startSec, endSec):
 
         XenCertPrint('about to write onto device: %s' % device)
 
-        f = open(device, 'w+')
-        while startSec <= endSec:
-            f.seek(startSec * SECTOR_SIZE)
-            f.write(BUF_PATTERN)
-            startSec += 1
-        f.close()
+        with open(device, 'w+') as f:
+            while startSec <= endSec:
+                f.seek(startSec * SECTOR_SIZE)
+                f.write(BUF_PATTERN)
+                startSec += 1
     except Exception, e:
         raise Exception('Writing data into VDI:%s Failed. Error: %s' \
                 % (vbd_ref, e))
@@ -945,14 +943,14 @@ def VerifyDataOnVDI(session, vbd_ref, startSec, endSec):
 
         expect = BUF_PATTERN
 
-        f = open(device, 'r+')
-        while startSec <= endSec:
-            f.seek(startSec * SECTOR_SIZE)
-            actual = f.read(len(expect))
-            if actual != expect:
-                raise Exception('expected:%s <> actual:%s' % (expect, actual))
-            startSec += 1
-        f.close()
+        with open(device, 'r+') as f:
+            while startSec <= endSec:
+                f.seek(startSec * SECTOR_SIZE)
+                actual = f.read(len(expect))
+                if actual != expect:
+                    raise Exception('expected:%s != actual:%s'\
+                             % (expect, actual))
+                startSec += 1
     except Exception, e:
         raise Exception('Verification of data in VDI:%s Failed. Error:%s'\
                 % (vbd_ref, e))
