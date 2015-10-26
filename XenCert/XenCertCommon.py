@@ -40,7 +40,8 @@ __cifs_args__ = [
     ["password", "The password to be used during CIFS authentication", " : ", None, "required", "-p", "" ] ]
 
 __lvmohba_args__ = [
-    ["adapters",       "comma separated list of HBAs to test against", " : ", None,        "optional", "-a", ""   ] ]
+    ["adapters",       "comma separated list of HBAs to test against", " : ", None,        "optional", "-a", ""   ],
+    ["scsiIDs",       "comma separated list of SCSI-IDs to test against", " : ", None,        "required", "-S", ""   ] ]
 
 __isl_args__ = [
     ["file",       "configuration file describing target array paramters", " : ", None,        "required", "-F", ""   ] ]
