@@ -2528,6 +2528,7 @@ class StorageHandlerHBA(StorageHandler):
         checkPoint = 0
         totalCheckPoints = 4
         timeForIOTestsInSec = 0
+        totalTimeForIOTestsInSec = 0
         totalSizeInMiB = 0
 
         try:
@@ -2577,6 +2578,9 @@ class StorageHandlerHBA(StorageHandler):
             hostIdToLunList = {}
             # map from SCSI id -> list of devices
             scsiToTupleMap = {}
+            # Create a map of the format SCSIid -> [size, time]
+            # this is used to store size of the disk and the calculated time it takes to perform disk IO tests
+            scsiInfo = {}
             for map in listMaps:
                 try:
                     (rVal, listLunInfo) = StorageHandlerUtil.GetLunInformation(map['id'])
@@ -2629,13 +2633,15 @@ class StorageHandlerHBA(StorageHandler):
                         sectors = util.get_single_entry(filelist[0])
                         size = int(sectors) * 512 / 1024 / 1024
                         Print("     %-4s\t%-34s\t%-20s\t%-10s" % (lun['id'], lun['SCSIid'], lun['device'], size))
-                        timeForIOTestsInSec += StorageHandlerUtil.FindDiskDataTestEstimate( lun['device'], size)
+                        timeForIOTestsInSec = StorageHandlerUtil.FindDiskDataTestEstimate( lun['device'], size)
                         if scsiToTupleMap.has_key(lun['SCSIid']):
                             scsiToTupleMap[lun['SCSIid']].append(lun['device'])
+                            scsiInfo[lun['SCSIid']][0] += size
+                            scsiInfo[lun['SCSIid']][1] += timeForIOTestsInSec
                         else:
                             scsiToTupleMap[lun['SCSIid']] = [lun['device']]
-                        
-                        totalSizeInMiB += size           
+                            scsiInfo[lun['SCSIid']] = [size,timeForIOTestsInSec]
+        
 
                 except Exception, e:
                     Print("     EXCEPTION: No LUNs reported for host id %s." % map['id'])
@@ -2650,20 +2656,35 @@ class StorageHandlerHBA(StorageHandler):
             Print("   that they are writeable and there is no apparent disk corruption.")
             Print("   the tests attempt to write to the LUN over each available path and")
             Print("   reports the number of writable paths to each LUN.")
-            seconds = timeForIOTestsInSec
+            
+            scsiIdList = self.storage_conf['scsiIDs'].split(",")
+            scsiIdsToTest = {}
+
+            # Create a pruned list which conatins only those SCSIids to be tested
+            for  key,value in scsiToTupleMap.items():
+                if key in scsiIdList:
+                    scsiIdsToTest[key] = value
+                    totalSizeInMiB += scsiInfo[key][0]
+                    totalTimeForIOTestsInSec += scsiInfo[key][1]
+
+            # Check if the entered list contains invalid SCSIid entries
+            if len(scsiIdsToTest) != len(scsiIdList):
+                raise Exception("One or more SCSI-ID that was entered is invalid")
+
+            seconds = totalTimeForIOTestsInSec
             minutes = 0
             hrs = 0
-            XenCertPrint("Total estimated time for the disk IO tests in seconds: %d" % timeForIOTestsInSec)
-            if timeForIOTestsInSec > 60:
-                minutes = int(timeForIOTestsInSec/60)
-                seconds = int(timeForIOTestsInSec - (minutes * 60))
+            XenCertPrint("Total estimated time for the disk IO tests in seconds: %d" % totalTimeForIOTestsInSec)
+            if totalTimeForIOTestsInSec > 60:
+                minutes = int(totalTimeForIOTestsInSec/60)
+                seconds = int(totalTimeForIOTestsInSec - (minutes * 60))
                 if minutes > 60:
                     hrs = int(minutes/60)
                     minutes = int(minutes - (hrs * 60))
             
             if hrs > timeLimitFunctional or hrs == timeLimitFunctional and minutes > 0:
                 raise Exception("The disk IO tests will take more than %s hours, please restrict the total disk sizes above to %d GiB."
-                                % (timeLimitFunctional, (timeLimitFunctional*60*60*totalSizeInMiB)/timeForIOTestsInSec))                
+                                % (timeLimitFunctional, (timeLimitFunctional*60*60*totalSizeInMiB)/totalTimeForIOTestsInSec))                
                 
             Print("   START TIME: %s " % (time.asctime(time.localtime())))
             if hrs > 0:
@@ -2675,14 +2696,14 @@ class StorageHandlerHBA(StorageHandler):
             
             Print("")            
             totalCheckPoints += 1
-            for key in scsiToTupleMap.keys():
+            for key in scsiIdsToTest.keys():
                 try:
                     totalCheckPoints += 1
                     Print("     - Testing LUN with SCSI ID %-30s" % key)
 
                     pathNo = 0
                     pathPassed = 0
-                    for device in scsiToTupleMap[key]:
+                    for device in scsiIdsToTest[key]:
                         # If this is a root device then skip IO tests for this device.
                         if os.path.realpath(util.getrootdev()) == device:
                             Print("     -> Skipping IO tests on device %s, as it is the root device." % device)
@@ -2720,7 +2741,7 @@ class StorageHandlerHBA(StorageHandler):
                         displayOperationStatus(False)
                         raise Exception("     - LUN with SCSI ID %-30s. Failed the IO test, none of the paths were writable." % key)                        
                     else:
-                        Print("        SCSI ID: %s Total paths: %d. Writable paths: %d." % (key, len(scsiToTupleMap[key]), pathPassed))
+                        Print("        SCSI ID: %s Total paths: %d. Writable paths: %d." % (key, len(scsiIdsToTest[key]), pathPassed))
                         displayOperationStatus(True)
                         checkPoint += 1
 
