@@ -59,7 +59,7 @@ multiPathDefaultsMap = { 'udev_dir':'/dev',
 			    'polling_interval':'5',
 			    'selector': "round-robin 0",
 			    'path_grouping_policy':'failover',
-			    'getuid_callout':"/sbin/scsi_id -g -u -s /block/%n",
+			    'getuid_callout':"/usr/lib/udev/scsi_id --whitelisted --replace-whitespace /dev/%n",
 			    'prio_callout':'none',
 			    'path_checker':'readsector0',
 			    'rr_min_io':'1000',
@@ -211,10 +211,7 @@ def GetConfig(scsiid):
 	configMap = {}
 	device = scsiutil._genReverseSCSIidmap(scsiid)[0]
 	XenCertPrint("GetConfig - device: %s" % device)
-	list = device.split('/')[1]
-	justDev = device.split('/')[2]
-	XenCertPrint("GetConfig - just the device: %s" % justDev)
-	cmd = ["scsi_id", "-u", "-g", "-x", "-s", "/block/%s" % justDev, "-d", device]
+	cmd = ["/usr/lib/udev/scsi_id", "--replace-whitespace", "--whitelisted", "--export", device]
 	ret = util.pread2(cmd)
 	XenCertPrint("GetConfig - scsi_if output: %s" % ret)
 	for tuple in ret.split('\n'):
