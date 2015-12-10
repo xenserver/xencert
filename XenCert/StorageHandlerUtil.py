@@ -31,6 +31,7 @@ import re
 import commands
 import time
 import mpath_dmp
+import xs_errors
 
 ISCSI_PROCNAME = "iscsi_tcp"
 timeTaken = '' 
@@ -725,7 +726,7 @@ def get_lun_scsiid_devicename_mapping(targetIQN, portal):
 
         return lunToScsiId
     except util.CommandException, inst:
-        XenCertPrint("Failed to find any LUNs for IQN: %s and portal: %s" % targetIQN, portal)
+        XenCertPrint("Failed to find any LUNs for IQN: %s and portal: %s" % (targetIQN, portal))
         return {}
 
 def parse_config(vendor, product):
