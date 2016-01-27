@@ -34,9 +34,9 @@ def blockUnblockPort(blockOrUnblock, ip, username, password, port):
     try:
         XenCertPrint("In blockUnblockPort with options: %s, %s, %s, %s" % (ip, username, password, port))
         if blockOrUnblock:
-            cmd = [os.path.join(os.getcwd(),'blockunblockHBAPort.sh'), ip, username, password, port, 'shut']
+            cmd = [os.path.join(os.getcwd(),'blockunblockHBAPort-cisco.sh'), ip, username, password, port, 'shut']
         else:
-            cmd = [os.path.join(os.getcwd(),'blockunblockHBAPort.sh'), ip, username, password, port, 'no shut']
+            cmd = [os.path.join(os.getcwd(),'blockunblockHBAPort-cisco.sh'), ip, username, password, port, 'no shut']
     
         XenCertPrint("calling %s" % cmd)
         util.doexec(cmd, '')

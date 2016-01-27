@@ -42,9 +42,9 @@ rm -rf $RPM_BUILD_ROOT
 /opt/xensource/debug/XenCert/XenCertCommon.pyc
 /opt/xensource/debug/XenCert/XenCertCommon.pyo
 /opt/xensource/debug/XenCert/XenCert_VerificationForm.docx
-/opt/xensource/debug/XenCert/blockunblockHBAPort.sh.brocade
-/opt/xensource/debug/XenCert/blockunblockHBAPort.sh.cisco
-/opt/xensource/debug/XenCert/blockunblockHBAPort.sh.qlogic
+/opt/xensource/debug/XenCert/blockunblockHBAPort-brocade.sh
+/opt/xensource/debug/XenCert/blockunblockHBAPort-cisco.sh
+/opt/xensource/debug/XenCert/blockunblockHBAPort-qlogic.sh
 /opt/xensource/debug/XenCert/blockunblockhbapaths-brocade
 /opt/xensource/debug/XenCert/blockunblockhbapaths-cisco
 /opt/xensource/debug/XenCert/blockunblockhbapaths-qlogic
