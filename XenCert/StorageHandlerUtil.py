@@ -701,28 +701,12 @@ def get_lun_scsiid_devicename_mapping(targetIQN, portal):
     lunToScsiId={}
     path = os.path.join("/dev/iscsi",targetIQN,portal)
     try:
-	deviceToLun = {}
-	deviceToScsiId = {}
         for file in util.listdir(path):
-	    realPath = os.path.realpath(os.path.join(path, file))
-	    if file.find("LUN") == 0 and file.find("_") == -1:		
+            realPath = os.path.realpath(os.path.join(path, file))
+            if file.find("LUN") == 0 and file.find("_") == -1:		
                 lun=file.replace("LUN","")
-		if deviceToScsiId.has_key(realPath):
-		    lunToScsiId[lun] = (deviceToScsiId[realPath], realPath) 
-		else:
-		    deviceToLun[realPath] = lun
-	        continue
-		
-	    if file.find("SERIAL-") == 0:
-		scsiid = file.replace("SERIAL-", "")
-		# found the SCSI ID, check if LUN has already been seen for this SCSI ID.
-		if deviceToLun.has_key(realPath):
-		    # add this to the map
-		    lunId = deviceToLun[realPath]
-                    lunToScsiId[lunId] = (scsiid, realPath)
-                else:
-		    # The SCSI ID was seen first so add this to the map
-		    deviceToScsiId[realPath] = scsiid
+                scsi_id = scsiutil.getSCSIid(os.path.join(path, file))
+                lunToScsiId[lun] = (scsi_id, realPath)
 
         return lunToScsiId
     except util.CommandException, inst:
