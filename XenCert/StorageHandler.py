@@ -1854,16 +1854,8 @@ class StorageHandlerISCSI(StorageHandler):
             self.device_config, '0', 'XenCertTestSR', 'XenCertTestSR-desc', 'lvmoiscsi', '',False, {})
 
     def MetaDataTests(self):
-        Print(">>> ISCSI Metadata tests")
-        Print("----------------")
-        retVal = True
-        retVal = self.metadata_sr_attach_tests() and \
-            self.metadata_sr_scan_tests() and \
-            self.metadata_sr_update_tests() and \
-            self.metadata_general_vm_tests() and \
-            self.metadata_scalibility_tests() and \
-            self.metadata_atomicity_tests()
-        return retVal
+        Print("MetaDataTests not applicable to ISCSI SR type.")
+        return False       
         
     def getMetaDataRec(self, params = {}):
         XenCertPrint("getMetaDataRec Enter")
