@@ -2575,6 +2575,18 @@ class StorageHandlerHBA(StorageHandler):
                     if not rVal:                                                    
                         raise Exception("Failed to get LUN information for host id: %s" % map['id'])
                     else:
+                        # If one of the devices (and probably the only device) on this HBA
+                        # is the root dev, skip it. The number of devices exposed on this HBA
+                        # will not match the devices exposed on other adapters
+                        rootFound = False
+                        for lun in listLunInfo:
+                            if lun['device'] == os.path.realpath(util.getrootdev()):
+                                XenCertPrint("Skipping host id %s with root device %s " % (map['id'], lun['device']))
+                                rootFound = True
+                                break
+                        if rootFound == True: 
+                            continue
+
                         XenCertPrint("Got LUN information for host id %s as %s" % (map['id'], listLunInfo))
                         hostIdToLunList[map['id']] = listLunInfo
 
