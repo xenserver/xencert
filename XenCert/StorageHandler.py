@@ -31,7 +31,7 @@ import glob
 from threading import Thread
 import time
 import os
-import ISCSISR
+import BaseISCSI
 import random
 import nfs
 import commands
@@ -2183,7 +2183,7 @@ class StorageHandlerISCSI(StorageHandler):
             listPortalIQNs = []
             for target in self.storage_conf['target'].split(','):
                 try:
-                    iscsi_map = iscsilib.discovery(target, ISCSISR.DEFAULT_PORT, self.storage_conf['chapuser'], self.storage_conf['chappasswd'])                                        
+                    iscsi_map = iscsilib.discovery(target, BaseISCSI.DEFAULT_PORT, self.storage_conf['chapuser'], self.storage_conf['chappasswd'])                                        
                 except Exception, e:
                     Print("Exception discovering iscsi target: %s, exception: %s" % (target, str(e)))
                     displayOperationStatus(False)
