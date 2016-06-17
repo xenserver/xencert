@@ -2858,7 +2858,9 @@ class StorageHandlerNFS(StorageHandler):
                 Print(">> as a local directory. ")
                 try:
                     util.makedirs(mountpoint, 755)
-                    nfs.soft_mount(mountpoint, self.storage_conf['server'], self.storage_conf['serverpath'], 'tcp', 0, nfsv)
+                    nfs.soft_mount(mountpoint, self.storage_conf['server'], 
+                                   self.storage_conf['serverpath'], 'tcp', 
+                                   timeout=0, nfsversion=nfsv)
                     mountCreated = True
                     displayOperationStatus(True)
                     checkPoints += 1
