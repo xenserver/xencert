@@ -19,11 +19,29 @@ XENCERT_SRC := $(RPM_SOURCESDIR)/xencert-$(XENCERT_VERSION).tar.gz
 XENCERT_SRPM := xencert-$(XENCERT_VERSION)-$(XENCERT_RELEASE).src.rpm
 XENCERT_STAMP := $(MY_OBJ_DIR)/.rpmbuild.stamp
 REPO := $(call git_loc,xencert)
-SUPPORT_PACK := $(MY_OUTPUT_DIR)/xencert-supp-pack
-BUILD := $(BUILD_NUMBER)
+
+# Definition of the pack.
+PACK_LABEL := xencert
+PACK_VERSION := $(XENCERT_VERSION)
+PACK_UUID := 38139de0-ef99-460b-ba8f-b86fca52c2e9
+PACK_DESCRIPTION := The XenServer Storage Certification Kit
+
+# Contents of the pack.
+PACK_PACKAGES = $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xencert-$(XENCERT_VERSION)-$(XENCERT_RELEASE).$(DOMAIN0_ARCH_OPTIMIZED).rpm
+
+ISO := $(MY_OUTPUT_DIR)/$(PACK_LABEL).iso
+SRCS := $(MY_OUTPUT_DIR)/$(PACK_LABEL)-sources.tar
+
+BUILD_DIR := $(MY_OBJ_DIR)/$(PACK_LABEL)
+
+BASE_REQUIRES ?= platform-version = $(PLATFORM_VERSION)
+
+GPG_KEY_FILE := RPM-GPG-KEY-XS-Eng-Test
+GPG_OPTIONS := --homedir=/.gpg --lock-never --batch --yes
+GPG_UID := $(shell gpg $(GPG_OPTIONS) -k --with-colons 2>/dev/null | awk -F: '$$1=="uid" {print $$10}')
 
 .PHONY: build
-build: sources $(XENCERT_STAMP) $(SUPPORT_PACK)
+build: sources $(XENCERT_STAMP) $(ISO) $(SRCS)
 
 $(MY_SOURCES)/MANIFEST: $(RPM_SRPMSDIR)/$(XENCERT_SRPM) $(MY_SOURCES_DIRSTAMP) $(RPM_BUILD_COOKIE)
 	rm -f $@
@@ -53,5 +71,12 @@ $(XENCERT_STAMP): $(RPM_SRPMSDIR)/$(XENCERT_SRPM)
 	$(RPMBUILD) --rebuild --target $(DOMAIN0_ARCH_OPTIMIZED) $(RPM_SRPMSDIR)/$(XENCERT_SRPM)
 	touch $@
 
-$(SUPPORT_PACK): $(XENCERT_STAMP)
-	python setup.py --out $(dir $@) --pdn $(PRODUCT_BRAND) --pdv $(PRODUCT_VERSION) --bld $(BUILD) --spn $(notdir $@) --spd "XenCert" --rxv "6.2.0" $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xencert-$(XENCERT_VERSION)*.x86_64.rpm
+$(ISO): $(MY_OUTPUT_DIR)/.dirstamp $(PACK_PACKAGES)
+	GNUPGHOME=/.gpg build-update --uuid $(PACK_UUID) --label "$(PACK_LABEL)" --version $(PACK_VERSION) \
+		--description "$(PACK_DESCRIPTION)" --base-requires "$(BASE_REQUIRES)" $(PACK_GUIDANCE:%=--after-apply %) \
+		$(PACK_PRECHECK:%=--precheck %) $(PACK_REMOVE:%=--remove %) \
+		--key "$(GPG_UID)" --keyfile $(GPG_KEY_FILE) --no-passphrase \
+		-o $@ $(PACK_PACKAGES)
+
+$(SRCS): $(RPM_SRPMSDIR)/$(XENCERT_SRPM)
+	tar czf $@ --owner=root --group=root -C $(RPM_SRPMSDIR) $(XENCERT_SRPM)
