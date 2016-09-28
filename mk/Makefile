@@ -29,7 +29,7 @@ PACK_DESCRIPTION := The XenServer Storage Certification Kit
 # Contents of the pack.
 PACK_PACKAGES = $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xencert-$(XENCERT_VERSION)-$(XENCERT_RELEASE).$(DOMAIN0_ARCH_OPTIMIZED).rpm
 
-ISO := $(MY_OUTPUT_DIR)/$(PACK_LABEL).iso
+ISO := $(MY_OUTPUT_DIR)/xencert-supp-pack.iso
 SRCS := $(MY_OUTPUT_DIR)/$(PACK_LABEL)-sources.tar
 
 BUILD_DIR := $(MY_OBJ_DIR)/$(PACK_LABEL)
@@ -77,6 +77,7 @@ $(ISO): $(MY_OUTPUT_DIR)/.dirstamp $(PACK_PACKAGES)
 		$(PACK_PRECHECK:%=--precheck %) $(PACK_REMOVE:%=--remove %) \
 		--key "$(GPG_UID)" --keyfile $(GPG_KEY_FILE) --no-passphrase \
 		-o $@ $(PACK_PACKAGES)
+	(cd $(@D) ; md5sum $(notdir $@) ) >$@.md5
 
 $(SRCS): $(RPM_SRPMSDIR)/$(XENCERT_SRPM)
 	tar czf $@ --owner=root --group=root -C $(RPM_SRPMSDIR) $(XENCERT_SRPM)
