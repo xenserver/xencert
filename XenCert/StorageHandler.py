@@ -2308,7 +2308,7 @@ class StorageHandlerISCSI(StorageHandler):
                     minutes = int(minutes - (hrs * 60))
             
             if hrs > timeLimitFunctional or hrs == timeLimitFunctional and minutes > 0:
-                raise Exception("The disk IO tests will take more than %s hours, please restrict the total disk sizes above to %d GiB."
+                raise Exception("The disk IO tests will take more than %s hours, please restrict the total disk sizes above to %d MiB."
                                 % (timeLimitFunctional, (timeLimitFunctional*60*60*totalSizeInMiB)/timeForIOTestsInSec))
                 
             Print("   START TIME: %s " % (time.asctime(time.localtime())))
