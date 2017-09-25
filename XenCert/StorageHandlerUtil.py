@@ -130,13 +130,6 @@ def _init_adapters():
     adapter = {}
     for host in ids:
         try:
-            # For Backward compatibility 
-            if hasattr(iscsilib, 'get_targetIQN'):
-                targetIQN = iscsilib.get_targetIQN(host)
-            else: 
-                targetIQN = util.get_single_entry(glob.glob(\
-                   '/sys/class/iscsi_host/host%s/device/session*/iscsi_session*/targetname' % host)[0])
-
             if hasattr(iscsilib, 'get_targetIP_and_port'):
                 (addr, port) = iscsilib.get_targetIP_and_port(host)
             else:
@@ -144,11 +137,9 @@ def _init_adapters():
                    '/sys/class/iscsi_host/host%s/device/session*/connection*/iscsi_connection*/persistent_address' % host)[0])
                 port = util.get_single_entry(glob.glob(\
                    '/sys/class/iscsi_host/host%s/device/session*/connection*/iscsi_connection*/persistent_port' % host)[0])
-
-            entry = "%s:%s" % (addr,port)
-            adapter[entry] = host
+            adapter[host] = {"ip":addr, "port":port}
         except Exception, e:
-            pass
+            XenCertPrint("Exception handled while fetching IP for paths: %s" % str(e))
     return adapter
 
 def IsMPEnabled(session, host_ref):
@@ -226,15 +217,10 @@ def GetConfig(scsiid):
     return (retVal, configMap)
 
 def findIPAddress(mapIPToHost, HBTL):
-    try:
-	ip = ''
-	for key in mapIPToHost.keys():
-	    if mapIPToHost[key] == HBTL.split(':')[0]:
-		ip = key.split(':')[0]
-		break
-    except Exception, e:
-	XenCertPrint("There was an exception in finding IP address for the HBTL: %s. Exception: %s" % (HBTL, str(e)))
-    return ip
+    key = HBTL.split(':')[0]
+    if key in mapIPToHost and 'ip' in mapIPToHost[key] and mapIPToHost[key]['ip']:
+        return mapIPToHost[key]['ip']
+    raise Exception("No IP for HBTL %s. IP to host map: %s" % (key, mapIPToHost))
 
 # The returned structure are a list of portals, and a list of SCSIIds for the specified IQN. 
 def GetListPortalScsiIdForIqn(session, server, targetIqn, chapUser = None, chapPassword = None):
