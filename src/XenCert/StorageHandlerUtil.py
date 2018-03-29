@@ -492,8 +492,9 @@ def CreateMaxSizeVDIAndVBD(session, sr_ref):
 	    session.xenapi.SR.scan(sr_ref)
 	    pSize = session.xenapi.SR.get_physical_size(sr_ref)
 	    pUtil = session.xenapi.SR.get_physical_utilisation(sr_ref)
-	    #vdi_size = str(actualSRFreeSpace(int(pSize) - int(pUtil)))
-	    vdi_size = '1073741824' # wkc hack (1GB)
+	    vdi_size_act = actualSRFreeSpace(int(pSize) - int(pUtil))
+	    vdi_size = str(min(1073741824, vdi_size_act)) # 1073741824 is by wkc hack (1GB)
+	    XenCertPrint("Actual SR free space: %d, and used VDI size %s" % (vdi_size_act, vdi_size))
 
 	    # Populate VDI args
 	    args={}
