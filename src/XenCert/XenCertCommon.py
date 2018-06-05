@@ -252,11 +252,11 @@ def DisplayStorageSpecificUsage(storage_type):
         DisplayiSLOptions()        
      
 def DisplayUsage(storage_type = None):
-    DisplayCommonOptions();
+    DisplayCommonOptions()
     Print("\nStorage specific options:\n")
     DisplayStorageSpecificUsage(storage_type)
     Print("")
-    DisplayTestSpecificOptions();
+    DisplayTestSpecificOptions()
 
 def printHelpItem(item):
     Print(" %s %-20s\t[%s] %s" % (item[5], item[0], item[4], item[1]))
