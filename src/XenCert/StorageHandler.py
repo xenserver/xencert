@@ -2858,12 +2858,12 @@ class StorageHandlerNFS(StorageHandler):
                     util.makedirs(mountpoint, 755)
                     nfs.soft_mount(mountpoint, self.storage_conf['server'], 
                                    self.storage_conf['serverpath'], 'tcp', 
-                                   timeout=0, nfsversion=nfsv)
+                                   timeout=600, nfsversion=nfsv)
                     mountCreated = True
                     displayOperationStatus(True)
                     checkPoints += 1
                 except Exception, e:
-                    raise Exception("   - Failed to mount exported path: %s on server: %s, error: %s" % (self.storage_conf['server'], self.storage_conf['serverpath'], str(e)))
+                    raise Exception("   - Failed to mount path %s:%s to %s, error: %s" % (self.storage_conf['server'], self.storage_conf['serverpath'], mountpoint, str(e)))
             
                 # 2. Create directory and execute Filesystem IO tests
                 Print("CREATE DIRECTORY AND PERFORM FILESYSTEM IO TESTS.")
