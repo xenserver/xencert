@@ -14,16 +14,15 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 """Storage handler classes for various storage drivers"""
-import sys
+import copy
+
 import StorageHandlerUtil
 from StorageHandlerUtil import Print
 from StorageHandlerUtil import PrintOnSameLine
 from StorageHandlerUtil import XenCertPrint
 from StorageHandlerUtil import displayOperationStatus
 from StorageHandlerUtil import DISKDATATEST
-from srmetadata import SLMetadataHandler
 import scsiutil, iscsilib
-import XenAPI
 import util
 import glob
 from threading import Thread
@@ -34,9 +33,9 @@ import random
 import nfs
 import commands
 from lvhdutil import VG_LOCATION,VG_PREFIX
-from lvutil import MDVOLUME_NAME, ensurePathExists, remove, rename
+from lvutil import MDVOLUME_NAME, remove, rename
 from srmetadata import LVMMetadataHandler, updateLengthInHeader, open_file, \
-    close, file_write_wrapper
+    close
 import metadata
 from xml.dom import minidom
 
@@ -115,7 +114,7 @@ class WaitForFailover(Thread):
             except Exception, e:                
                 raise Exception(e)
             
-class StorageHandler:
+class StorageHandler(object):
     KEYS_NOT_POPULATED_BY_THE_STORAGE = ['allowed_operations',
                                          'current_operations',
                                          'VBDs',
@@ -233,6 +232,7 @@ class StorageHandler:
         return (retVal, checkPoint, totalCheckPoints)
 
     def MPConfigVerificationTests(self):
+        disableMP = False
         try:
             sr_ref = None
             vdi_ref = None
@@ -256,8 +256,7 @@ class StorageHandler:
                 iterationCount = int(self.storage_conf['count']) + 1
             
             #1. Enable host Multipathing
-            disableMP = False
-            if not StorageHandlerUtil.IsMPEnabled(self.session, util.get_localhost_uuid(self.session)): 
+            if not StorageHandlerUtil.IsMPEnabled(self.session, util.get_localhost_uuid(self.session)):
                 StorageHandlerUtil.enable_multipathing(self.session, util.get_localhost_uuid(self.session))
                 disableMP = True
 
@@ -1836,8 +1835,68 @@ class StorageHandler:
     
     def Probe_SR(self):
         return ''
-        
-class StorageHandlerISCSI(StorageHandler):
+
+
+class BlockStorageHandler(StorageHandler):
+
+    def __init__(self, storage_handler):
+        super(BlockStorageHandler, self).__init__(storage_handler)
+        self.gfs2_handler = StorageHandlerGFS2(self)
+        self.enabled_clustering = False
+
+    def Gfs2Supported(self):
+        pools = self.session.xenapi.pool.get_all_records()
+        pool = [pools[k] for k in pools][0]
+        if not 'restrict_corosync' in pool['restrictions']:
+            return False
+
+        if not self.session.xenapi.Cluster.get_all():
+            # cluster not enabled
+            Print("Enabling clustering")
+            management_pifs = [ref for (ref,pif) in
+                               self.session.xenapi.PIF.get_all_records().items()
+                               if pif['management']]
+            [self.session.xenapi.PIF.set_disallow_unplug(pif, True) for
+             pif in management_pifs]
+
+            management_network = self.session.xenapi.PIF.get_record(
+                management_pifs[0])['network']
+            self.cluster = self.session.xenapi.Cluster.pool_create(
+                management_network, 'corosync', 1.0, 0.65)
+            self.enabled_clustering = True
+
+        return True
+
+    def DisableClustering(self):
+        """
+        If we enabled clustering disable it afterwards
+        """
+        if self.enabled_clustering:
+            Print("Test enabled clustering, disabling at end")
+            self.session.xenapi.Cluster.pool_destroy(self.cluster)
+
+    def ControlPathStressTests(self):
+        (retValControl, checkPointsControl, totalCheckPointsControl) = \
+            super(BlockStorageHandler, self).ControlPathStressTests()
+
+        try:
+            if self.Gfs2Supported():
+                Print("Performing GFS2 control path stress tests.")
+                (retValControlGFS2, checkPointsControlGFS2,
+                 totalCheckPointsControlGFS2) = \
+                    self.gfs2_handler.ControlPathStressTests()
+
+                checkPointsControl += checkPointsControlGFS2
+                totalCheckPointsControl += totalCheckPointsControlGFS2
+                retValControl &= retValControlGFS2
+        finally:
+            self.DisableClustering()
+
+        return retValControl, checkPointsControl, totalCheckPointsControl
+
+
+class StorageHandlerISCSI(BlockStorageHandler):
+
     def __init__(self, storage_conf):
         XenCertPrint("Reached StorageHandlerISCSI constructor")
         self.device_config = {}
@@ -1845,11 +1904,7 @@ class StorageHandlerISCSI(StorageHandler):
         self.device_config['targetIQN'] = storage_conf['targetIQN']
         self.device_config['SCSIid'] = storage_conf['SCSIid']
         self.iqn = storage_conf['targetIQN']
-        StorageHandler.__init__(self, storage_conf)        
-    
-    def Create_SR(self):        
-        return self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), \
-            self.device_config, '0', 'XenCertTestSR', 'XenCertTestSR-desc', 'lvmoiscsi', '',False, {})
+        super(StorageHandlerISCSI, self).__init__(storage_conf)
 
     def MetaDataTests(self):
         Print("MetaDataTests not applicable to ISCSI SR type.")
@@ -2399,16 +2454,13 @@ class StorageHandlerISCSI(StorageHandler):
     def __del__(self):
         XenCertPrint("Reached StorageHandlerISCSI destructor")
         StorageHandler.__del__(self)
-        
-class StorageHandlerHBA(StorageHandler):
+
+
+class StorageHandlerHBA(BlockStorageHandler):
     def __init__(self, storage_conf):
         XenCertPrint("Reached StorageHandlerHBA constructor")
-        StorageHandler.__init__(self, storage_conf)
+        super(StorageHandlerHBA, self).__init__(storage_conf)
 
-    def Create_SR(self):
-        return self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), \
-            self.device_config, '0', 'XenCertTestSR', 'XenCertTestSR-desc', 'lvmohba', '',False, {})
-    
     def Create(self):
         device_config = {}
         retVal = True
@@ -3292,3 +3344,114 @@ class StorageHandlerCIFS(StorageHandler):
                       'SR with name-label "XenCertTestSR"' % e)
 
         return (retVal, checkPoint, totalCheckPoints)
+
+class StorageHandlerGFS2(StorageHandler):
+    """
+    Storage handler for GFS2 SRs
+    """
+    def __init__(self, base_handler):
+        XenCertPrint("Reached StorageHandlerGFS2 constructor")
+
+        self.base_handler = base_handler
+
+        storage_conf = base_handler.storage_conf
+
+        if isinstance(base_handler, StorageHandlerISCSI):
+            provider = 'iscsi'
+        elif isinstance(base_handler, StorageHandlerHBA):
+            provider = 'hba'
+        else:
+            raise Exception('GFS does not support base %s' %
+                            (base_handler.__class__.__name__))
+
+        self.device_config = dict(provider=provider)
+
+        if 'SCSIid' in storage_conf:
+            # iSCSI provides a single SCSI id
+            self.device_config['SCSIid'] = storage_conf['SCSIid']
+        elif 'scsiIDs' in storage_conf and storage_conf['scsiIDs']:
+            # HBA provides a list of SCSI ids, we only want one
+            if isinstance(storage_conf['scsiIDs'], list):
+                self.device_config['SCSIid'] = storage_conf['scsiIDs'][0]
+            else:
+                self.device_config['SCSIid'] = storage_conf['scsiIDs']
+
+        # iSCSI also needs target, IQN
+        if self.device_config['provider'] == 'iscsi':
+            self.device_config['target'] = storage_conf['target']
+            self.device_config['targetIQN'] = storage_conf['targetIQN']
+
+        super(StorageHandlerGFS2, self).__init__(storage_conf)
+
+    def Create(self):
+        retVal = True
+        sr_ref = None
+
+        try:
+            XenCertPrint(
+                "First use XAPI to get information for creating an SR.")
+
+            if isinstance(self.base_handler, StorageHandlerISCSI):
+                listSCSIId = self.getIscsiScsiIds()
+            elif isinstance(self.base_handler, StorageHandlerHBA):
+                listSCSIId = self.getHbaScsiIds()
+
+            Print("      Creating the SR.")
+
+            device_config = copy.deepcopy(self.device_config)
+
+            # try to create an SR with one of the LUNs mapped, if all fails
+            # throw an exception
+            for scsiId in listSCSIId:
+                try:
+                    device_config['SCSIid'] = scsiId
+                    XenCertPrint("The SR create parameters are {}, {}".format(
+                        util.get_localhost_uuid(self.session),
+                        device_config))
+
+                    sr_ref = self.session.xenapi.SR.create(
+                            util.get_localhost_uuid(self.session),
+                            device_config,
+                            0,
+                            "XenCertTestSR",
+                            '',
+                            'gfs2',
+                            '',
+                            True,
+                            {}
+                        )
+
+                    XenCertPrint(
+                        "Created the SR {} using device_config {}".format(
+                            sr_ref, device_config))
+                    displayOperationStatus(True)
+                    break
+
+                except Exception as e:
+                    XenCertPrint(
+                        "Could not perform SR control tests with device %s,"
+                        " trying other devices." % scsiId)
+
+                if sr_ref == None:
+                    displayOperationStatus(False)
+                    retVal = False
+        except Exception as e:
+            Print("    - Failed to create SR. Exception {}".format(str(e)))
+            displayOperationStatus(False)
+            raise
+
+        return retVal, sr_ref, device_config
+
+    def getIscsiScsiIds(self):
+        (listPortal, listSCSIId) = \
+            StorageHandlerUtil.GetListPortalScsiIdForIqn(
+                self.session, self.storage_conf['target'],
+                self.storage_conf['targetIQN'],
+                self.storage_conf['chapuser'],
+                self.storage_conf['chappasswd'])
+        return listSCSIId
+
+    def getHbaScsiIds(self):
+        (retVal, listAdapters, listSCSIId) = StorageHandlerUtil.\
+            GetHBAInformation(self.session, self.storage_conf)
+        return listSCSIId
