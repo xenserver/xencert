@@ -41,7 +41,9 @@ def main():
         PrintToLog(' ')
         PrintToLog('\n\n')
     (options, args) = XenCertCommon.parse_args("%prog 2.5. \nCitrix Systems, Storage Certification.\n")
-   
+    # Convert legacy lvmoXXX storage types to their base type
+    options.storage_type = options.storage_type.lstrip("lvmo")
+
     if args:
         Print("Unknown arguments found: %s" % args)
         sys.exit(1)

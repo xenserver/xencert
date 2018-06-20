@@ -249,8 +249,8 @@ class StorageHandler(object):
             if not os.path.exists(self.storage_conf['pathHandlerUtil']):                 
                 raise Exception("Path handler util specified for multipathing tests does not exist!")
             
-            if self.storage_conf['storage_type'] == 'lvmohba' and self.storage_conf['pathInfo'] == None: 
-                raise Exception("Path related information not specified for storage type lvmohba.")
+            if self.storage_conf['storage_type'] == 'hba' and self.storage_conf['pathInfo'] == None:
+                raise Exception("Path related information not specified for storage type hba.")
             
             if self.storage_conf['count'] != None:
                 iterationCount = int(self.storage_conf['count']) + 1

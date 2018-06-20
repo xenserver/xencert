@@ -37,14 +37,14 @@ __cifs_args__ = [
     ["username", "The username to be used during CIFS authentication", " : ", None, "required", "-y", "" ],
     ["password", "The password to be used during CIFS authentication", " : ", None, "required", "-p", "" ] ]
 
-__lvmohba_args__ = [
+__hba_args__ = [
     ["adapters",       "comma separated list of HBAs to test against", " : ", None,        "optional", "-a", ""   ],
     ["scsiIDs",       "comma separated list of SCSI-IDs to test against", " : ", None,        "required", "-S", ""   ] ]
 
 __isl_args__ = [
     ["file",       "configuration file describing target array paramters", " : ", None,        "required", "-F", ""   ] ]
 
-__lvmoiscsi__ = [
+__iscsi_args__ = [
     ["target",          "comma separated list of Target names/IP addresses", " : ", None,        "required", "-t", ""      ],
     ["targetIQN",       "comma separated list of target IQNs OR \"*\"", " : ", None,        "required", "-q", ""      ],
     ["SCSIid",        "SCSIid to use for SR creation",                  " : ", '',          "optional", "-s", ""    ],
@@ -89,7 +89,7 @@ def parse_args(version_string):
                        help=element[1],
                        dest=element[0])
     
-    for element in __lvmohba_args__:
+    for element in __hba_args__:
         opt.add_option(element[5], element[6],
                        default=element[3],
                        help=element[1],
@@ -101,7 +101,7 @@ def parse_args(version_string):
                        help=element[1],
                        dest=element[0])
 
-    for element in __lvmoiscsi__:
+    for element in __iscsi_args__:
         opt.add_option(element[5], element[6],
                        default=element[3],
                        help=element[1],
@@ -133,7 +133,7 @@ def store_configuration(g_storage_conf, options):
 
 def valid_arguments(options, g_storage_conf):
     """ validate arguments """
-    if not options.storage_type in ["lvmohba", "hba", "nfs", "cifs", "lvmoiscsi", "iscsi", "isl"]:
+    if not options.storage_type in ["hba", "nfs", "cifs", "iscsi", "isl"]:
         Print("Error: storage type (hba, nfs, cifs, isl or iscsi) is required")
         return 0
 
@@ -152,14 +152,12 @@ def valid_arguments(options, g_storage_conf):
         subargs = __nfs_args__
     elif options.storage_type == "cifs":
         subargs = __cifs_args__
-    elif (options.storage_type == "lvmohba" or
-          options.storage_type == "hba"):
-        subargs = __lvmohba_args__
+    elif options.storage_type == "hba":
+        subargs = __hba_args__
     elif options.storage_type == "isl":
         subargs = __isl_args__
-    elif (options.storage_type == "lvmoiscsi" or
-          options.storage_type == "iscsi"):
-        subargs = __lvmoiscsi__
+    elif options.storage_type == "iscsi":
+        subargs = __iscsi_args__
 
     for element in subargs:
         if not getattr(options, element[0]):
@@ -177,12 +175,10 @@ def valid_arguments(options, g_storage_conf):
 
 def GetStorageHandler(g_storage_conf):
     # Factory method to instantiate the correct handler
-    if (g_storage_conf["storage_type"] == "lvmoiscsi" or
-            g_storage_conf["storage_type"] == "iscsi"):
+    if g_storage_conf["storage_type"] == "iscsi":
         return StorageHandler.StorageHandlerISCSI(g_storage_conf)
     
-    if (g_storage_conf["storage_type"] == "lvmohba" or
-            g_storage_conf["storage_type"] == "hba"):
+    if g_storage_conf["storage_type"] == "hba":
         return StorageHandler.StorageHandlerHBA(g_storage_conf)
         
     if g_storage_conf["storage_type"] == "nfs":
@@ -205,7 +201,7 @@ Common options:\n")
     
 def DisplayiSCSIOptions():
     Print(" Storage type iscsi:\n")
-    for item in __lvmoiscsi__:
+    for item in __iscsi_args__:
         printHelpItem(item)
  
 def DisplayNfsOptions():
@@ -220,7 +216,7 @@ def DisplayCIFSOptions():
   
 def DisplayHBAOptions():
     Print(" Storage type hba:\n")
-    for item in __lvmohba_args__:
+    for item in __hba_args__:
         printHelpItem(item)    
 
 def DisplayiSLOptions():
@@ -235,15 +231,13 @@ def DisplayTestSpecificOptions():
         printHelpItem(item)
 
 def DisplayStorageSpecificUsage(storage_type):
-    if (storage_type == 'lvmoiscsi' or
-            storage_type == 'iscsi'):
+    if storage_type == 'iscsi':
         DisplayiSCSIOptions()
     elif storage_type == 'nfs':
         DisplayNfsOptions()
     elif storage_type == 'cifs':
         DisplayCIFSOptions()
-    elif (storage_type == 'lvmohba' or
-            storage_type == 'hba'):
+    elif storage_type == 'hba':
         DisplayHBAOptions()
     elif storage_type == 'isl':
         DisplayiSLOptions()
