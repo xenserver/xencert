@@ -28,6 +28,13 @@ from StorageHandlerUtil import GetLogFileName
 from datetime import datetime
 import time, commands
 
+TAG_PASS = "[PASS]"
+TAG_FAIL = "[FAIL]"
+
+def showReport(msg, result, checkPoints=1, totalCheckPoints=1, time=0):
+    Print("%-50s: %s, Pass percentage: %d, Completed: %s" %
+          (msg, TAG_PASS if result else TAG_FAIL, int((checkPoints * 100) / totalCheckPoints), time))
+
 def main():
     """Main Routine"""
 
@@ -123,68 +130,37 @@ def main():
     
     if options.metadata:
         Print("Performing metadata tests.")
-        retValMetadata = handler.MetaDataTests()        
+        retValMetadata = handler.MetaDataTests()
         Print("***********************************************************************")
         timeOfCompletionMetadata = time.asctime(time.localtime())
 
     # Now display all the results
     if options.multipath or testAll:
         Print("***********************************************************************")
-        if retValMP:
-            Print("%-50s: PASS, Pass percentage: %d, Completed: %s" %
-              ('Multipath configuration verification results',
-               int((checkPointsMP * 100)/totalCheckPointsMP),
-               timeOfCompletionMP))
-        else:
-            Print("%-50s: FAIL, Pass percentage: %d, Completed: %s" %
-              ('Multipath configuration verification results',
-               int((checkPointsMP * 100)/totalCheckPointsMP),
-               timeOfCompletionMP))
+        showReport('Multipath configuration verification results', retValMP, checkPointsMP, totalCheckPointsMP,
+                   timeOfCompletionMP)
 
     if options.control or testAll:     	
         Print("***********************************************************************")
-        if retValControl:
-            Print("%-50s: PASS, Pass percentage: %d, Completed: %s" %
-              ('Control path stress test results',
-               int((checkPointsControl * 100)/totalCheckPointsControl),
-               timeOfCompletionControl))
-        else:
-            Print("%-50s: FAIL, Pass percentage: %d, Completed: %s" %
-              ('Control path stress test results',
-               int((checkPointsControl * 100)/totalCheckPointsControl),
-               timeOfCompletionControl))
+        showReport('Control path stress test results', retValControl, checkPointsControl, totalCheckPointsControl,
+                   timeOfCompletionControl)
 
     if options.pool or testAll:	
         Print("***********************************************************************")
-        if retValPool:
-            Print("%-50s: PASS, Pass percentage: %d, Completed: %s" % ('Pool test results', int((checkPointsPool * 100)/totalCheckPointsPool), timeOfCompletionPool))
-        else:
-            Print("%-50s: FAIL, Pass percentage: %d, Completed: %s" % ('Pool test results', int((checkPointsPool * 100)/totalCheckPointsPool), timeOfCompletionPool))
+        showReport('Pool test results', retValPool, checkPointsPool, totalCheckPointsPool, timeOfCompletionPool)
 
     if options.functional or testAll:     	
         Print("***********************************************************************")
-        if retValFunctional:
-            Print("%-50s: PASS, Pass percentage: %d, Completed: %s" %
-              ('Functional test results', int((checkPointsFunctional * 100)/totalCheckPointsFunctional), timeOfCompletionFunctional))
-        else:
-            Print("%-50s: FAIL, Pass percentage: %d, Completed: %s" %
-              ('Functional test results', int((checkPointsFunctional * 100)/totalCheckPointsFunctional), timeOfCompletionFunctional))
+        showReport('Functional test results', retValFunctional, checkPointsFunctional, totalCheckPointsFunctional,
+                   timeOfCompletionFunctional)
 
     if options.data or testAll:         
         Print("***********************************************************************")
-        if retValData: 
-            Print("%-50s: PASS, Pass percentage: %d, Completed: %s" %
-          ('Data test results', int((checkPointsData * 100)/totalCheckPointsData), timeOfCompletionData))
-        else:
-            Print("%-50s: FAIL, Pass percentage: %d, Completed: %s" %
-          ('Data test results', int((checkPointsData * 100)/totalCheckPointsData), timeOfCompletionData))
+        showReport('Data test results', retValData, checkPointsData, totalCheckPointsData, timeOfCompletionData)
         
     if options.metadata:
         Print("***********************************************************************")
-        if retValMetadata: 
-            Print("%-50s: PASS" % ('Metadata test results'))
-        else:
-            Print("%-50s: FAIL" % ('Metadata test results'))
+        showReport('Metadata test results', retValMetadata, 1, 1, timeOfCompletionMetadata)
             
     Print("***********************************************************************")
     Print("End of XenCert certification suite.")
