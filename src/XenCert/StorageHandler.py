@@ -1850,7 +1850,8 @@ class BlockStorageHandler(StorageHandler):
     def Gfs2Supported(self):
         pools = self.session.xenapi.pool.get_all_records()
         pool = [pools[k] for k in pools][0]
-        if not 'restrict_corosync' in pool['restrictions']:
+        if not 'restrict_corosync' in pool['restrictions'] or \
+                self.storage_conf['storage_type'] == "fcoe":
             return False
 
         if not self.session.xenapi.Cluster.get_all():
