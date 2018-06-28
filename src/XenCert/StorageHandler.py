@@ -649,8 +649,11 @@ class StorageHandler(object):
             (rc, stdout, stderr) = util.doexec(cmd,'')
 
             XenCertPrint("The path block/unblock utility returned rc: %s stdout: '%s', stderr: '%s'" % (rc, stdout, stderr))
-            if rc != 0:                
-                raise Exception("   - The path block/unblock utility returned an error: %s. Please block/unblock the paths %s manually." % (stderr, passthrough))
+            if rc != 0:
+                passthrough_with_hidden_password = passthrough.split(':')
+                passthrough_with_hidden_password[2] = '*' * 10
+                passthrough_with_hidden_password = ':'.join(passthrough_with_hidden_password)
+                raise Exception("   - The path block/unblock utility returned an error: %s. Please block/unblock the paths %s manually." % (stderr, passthrough_with_hidden_password))
             return stdout
         except Exception, e:            
             raise e        

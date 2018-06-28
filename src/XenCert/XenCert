@@ -28,13 +28,6 @@ from StorageHandlerUtil import GetLogFileName
 from datetime import datetime
 import time, commands
 
-TAG_PASS = "[PASS]"
-TAG_FAIL = "[FAIL]"
-
-def showReport(msg, result, checkPoints=1, totalCheckPoints=1, time=0):
-    Print("%-50s: %s, Pass percentage: %d, Completed: %s" %
-          (msg, TAG_PASS if result else TAG_FAIL, int((checkPoints * 100) / totalCheckPoints), time))
-
 def main():
     """Main Routine"""
 
@@ -43,10 +36,20 @@ def main():
     InitLogging()
     PrintToLog("***********************************************************************\n")
     PrintToLog("The XenCert command executed is: \n\n")
+
+    # Replace password with * in logfile
+    is_dash_i = False
     for arg in sys.argv:
+        if is_dash_i:
+            args = arg.split(':')
+            args[2] = "*" * 10
+            arg = ':'.join(args)
+            is_dash_i = False
+        if arg == '-i':
+            is_dash_i = True
         PrintToLog(arg)
         PrintToLog(' ')
-        PrintToLog('\n\n')
+    PrintToLog('\n\n')
     (options, args) = XenCertCommon.parse_args("%prog 2.5. \nCitrix Systems, Storage Certification.\n")
     # Convert legacy lvmoXXX storage types to their base type
     options.storage_type = options.storage_type.lstrip("lvmo")
@@ -130,37 +133,68 @@ def main():
     
     if options.metadata:
         Print("Performing metadata tests.")
-        retValMetadata = handler.MetaDataTests()
+        retValMetadata = handler.MetaDataTests()        
         Print("***********************************************************************")
         timeOfCompletionMetadata = time.asctime(time.localtime())
 
     # Now display all the results
     if options.multipath or testAll:
         Print("***********************************************************************")
-        showReport('Multipath configuration verification results', retValMP, checkPointsMP, totalCheckPointsMP,
-                   timeOfCompletionMP)
+        if retValMP:
+            Print("%-50s: PASS, Pass percentage: %d, Completed: %s" %
+              ('Multipath configuration verification results',
+               int((checkPointsMP * 100)/totalCheckPointsMP),
+               timeOfCompletionMP))
+        else:
+            Print("%-50s: FAIL, Pass percentage: %d, Completed: %s" %
+              ('Multipath configuration verification results',
+               int((checkPointsMP * 100)/totalCheckPointsMP),
+               timeOfCompletionMP))
 
     if options.control or testAll:     	
         Print("***********************************************************************")
-        showReport('Control path stress test results', retValControl, checkPointsControl, totalCheckPointsControl,
-                   timeOfCompletionControl)
+        if retValControl:
+            Print("%-50s: PASS, Pass percentage: %d, Completed: %s" %
+              ('Control path stress test results',
+               int((checkPointsControl * 100)/totalCheckPointsControl),
+               timeOfCompletionControl))
+        else:
+            Print("%-50s: FAIL, Pass percentage: %d, Completed: %s" %
+              ('Control path stress test results',
+               int((checkPointsControl * 100)/totalCheckPointsControl),
+               timeOfCompletionControl))
 
     if options.pool or testAll:	
         Print("***********************************************************************")
-        showReport('Pool test results', retValPool, checkPointsPool, totalCheckPointsPool, timeOfCompletionPool)
+        if retValPool:
+            Print("%-50s: PASS, Pass percentage: %d, Completed: %s" % ('Pool test results', int((checkPointsPool * 100)/totalCheckPointsPool), timeOfCompletionPool))
+        else:
+            Print("%-50s: FAIL, Pass percentage: %d, Completed: %s" % ('Pool test results', int((checkPointsPool * 100)/totalCheckPointsPool), timeOfCompletionPool))
 
     if options.functional or testAll:     	
         Print("***********************************************************************")
-        showReport('Functional test results', retValFunctional, checkPointsFunctional, totalCheckPointsFunctional,
-                   timeOfCompletionFunctional)
+        if retValFunctional:
+            Print("%-50s: PASS, Pass percentage: %d, Completed: %s" %
+              ('Functional test results', int((checkPointsFunctional * 100)/totalCheckPointsFunctional), timeOfCompletionFunctional))
+        else:
+            Print("%-50s: FAIL, Pass percentage: %d, Completed: %s" %
+              ('Functional test results', int((checkPointsFunctional * 100)/totalCheckPointsFunctional), timeOfCompletionFunctional))
 
     if options.data or testAll:         
         Print("***********************************************************************")
-        showReport('Data test results', retValData, checkPointsData, totalCheckPointsData, timeOfCompletionData)
+        if retValData: 
+            Print("%-50s: PASS, Pass percentage: %d, Completed: %s" %
+          ('Data test results', int((checkPointsData * 100)/totalCheckPointsData), timeOfCompletionData))
+        else:
+            Print("%-50s: FAIL, Pass percentage: %d, Completed: %s" %
+          ('Data test results', int((checkPointsData * 100)/totalCheckPointsData), timeOfCompletionData))
         
     if options.metadata:
         Print("***********************************************************************")
-        showReport('Metadata test results', retValMetadata, 1, 1, timeOfCompletionMetadata)
+        if retValMetadata: 
+            Print("%-50s: PASS" % ('Metadata test results'))
+        else:
+            Print("%-50s: FAIL" % ('Metadata test results'))
             
     Print("***********************************************************************")
     Print("End of XenCert certification suite.")
