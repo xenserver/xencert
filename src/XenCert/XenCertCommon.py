@@ -18,8 +18,11 @@
 from optparse import OptionParser
 import StorageHandler
 from StorageHandlerUtil import Print
+from StorageHandlerUtil import PrintToLog
+
 
 storage_type = "storage type (iscsi, hba, nfs, isl)"
+HIDDEN_PASSWORD = '*' * 8
 
 # argument format:
 #  keyword
@@ -262,3 +265,24 @@ def DisplayUsage(storage_type = None):
 def printHelpItem(item):
     Print(" %s %-20s\t[%s] %s" % (item[5], item[0], item[4], item[1]))
     
+def printCommand(argvs):
+    temp_argvs = argvs[:]
+    for option in ['-i', '-w', '-p']:
+        try:
+            option_index = temp_argvs.index(option)
+        except ValueError, e:
+            pass
+        else:
+            if option == '-i':
+                temp_argvs[option_index+1] = ':'.join(hidePassword(temp_argvs[option_index+1].split(':'), 2))
+            else:
+                temp_argvs[option_index+1] = HIDDEN_PASSWORD
+
+    for argv in temp_argvs:
+        PrintToLog(argv)
+        PrintToLog(' ')
+
+def hidePassword(cmd, password_index=-3):
+    cmd_with_hidden_password = cmd[:]
+    cmd_with_hidden_password[password_index] = HIDDEN_PASSWORD
+    return cmd_with_hidden_password
