@@ -23,8 +23,11 @@ import xslib
 import random
 import os
 from StorageHandlerUtil import XenCertPrint
+import XenCertCommon
+
 
 NO_OF_PATHS_PER_PORT = 1
+
 
 def help():
     print "Usage: blockunblockhbapaths <block/unblock> <noOfPaths> switch-ip:username:password:port1,port2..."
@@ -32,13 +35,12 @@ def help():
     
 def blockUnblockPort(blockOrUnblock, ip, username, password, port):
     try:
-        XenCertPrint("In blockUnblockPort with options: %s, %s, %s, %s" % (ip, username, password, port))
+        XenCertPrint("In blockUnblockPort with options: %s, %s, %s, %s" % (ip, username, XenCertCommon.HIDDEN_PASSWORD, port))
         if blockOrUnblock:
             cmd = [os.path.join(os.getcwd(),'blockunblockHBAPort-qlogic.sh'), ip, username, password, port, 'offline']
         else:
             cmd = [os.path.join(os.getcwd(),'blockunblockHBAPort-qlogic.sh'), ip, username, password, port, 'online']
-    
-        XenCertPrint("calling %s" % cmd)
+        XenCertPrint("calling %s" % ' '.join(XenCertCommon.hidePassword(cmd)))
         util.doexec(cmd, '')
     except Exception, e:
         util.SMlog("There was an exception in blocking port: %s" % port)
@@ -78,7 +80,10 @@ if op == 'block':
     retVal += str(len(sampled_portlist) * NO_OF_PATHS_PER_PORT)
     retVal += ','
     retVal += str(len(portList) * NO_OF_PATHS_PER_PORT)
-    XenCertPrint(retVal)
+
+    password_index = len(ip) + len(username) + 2
+    retVal_tmp = retVal[:password_index] + retVal[password_index:].replace(password, XenCertCommon.HIDDEN_PASSWORD, 1)
+    XenCertPrint(retVal_tmp)
     sys.stdout.write(retVal)
 
 sys.exit(0)

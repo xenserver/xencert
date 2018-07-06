@@ -38,6 +38,8 @@ from srmetadata import LVMMetadataHandler, updateLengthInHeader, open_file, \
     close
 import metadata
 from xml.dom import minidom
+import XenCertCommon
+
 
 retValIO = 0
 timeTaken = '' 
@@ -450,7 +452,7 @@ class StorageHandler(object):
             scsiIdToUse = None
             device_config = {}
             device_config['target'] = self.storage_conf['target']
-            if self.storage_conf['chapuser']!= None and self.storage_conf['chappasswd'] != None:
+            if self.storage_conf['chapuser'] and self.storage_conf['chappasswd']:
                    device_config['chapuser'] = self.storage_conf['chapuser']
                    device_config['chappassword'] = self.storage_conf['chappasswd']
             
@@ -461,7 +463,10 @@ class StorageHandler(object):
                         device_config['targetIQN'] = iqn
                         device_config['SCSIid'] = scsiId
                         sr_ref = self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), device_config, '0', 'XenCertTestSR', '', 'lvmoiscsi', '',False, {})
-                        XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config))
+                        device_config_tmp = dict(device_config)
+                        if 'chappassword' in device_config_tmp:
+                            device_config_tmp['chappassword'] = XenCertCommon.HIDDEN_PASSWORD
+                        XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config_tmp))
                         scsiIdToUse = scsiId
                         break
                     except Exception, e:
@@ -649,8 +654,8 @@ class StorageHandler(object):
             (rc, stdout, stderr) = util.doexec(cmd,'')
 
             XenCertPrint("The path block/unblock utility returned rc: %s stdout: '%s', stderr: '%s'" % (rc, stdout, stderr))
-            if rc != 0:                
-                raise Exception("   - The path block/unblock utility returned an error: %s. Please block/unblock the paths %s manually." % (stderr, passthrough))
+            if rc != 0:
+                raise Exception("   - The path block/unblock utility returned an error: %s." % stderr)
             return stdout
         except Exception, e:            
             raise e        

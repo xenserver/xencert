@@ -42,11 +42,7 @@ def main():
     g_storage_conf = {}
     InitLogging()
     PrintToLog("***********************************************************************\n")
-    PrintToLog("The XenCert command executed is: \n\n")
-    for arg in sys.argv:
-        PrintToLog(arg)
-        PrintToLog(' ')
-        PrintToLog('\n\n')
+
     (options, args) = XenCertCommon.parse_args("%prog 2.5. \nCitrix Systems, Storage Certification.\n")
     # Convert legacy lvmoXXX storage types to their base type
     options.storage_type = options.storage_type.lstrip("lvmo")
@@ -54,6 +50,10 @@ def main():
     if args:
         Print("Unknown arguments found: %s" % args)
         sys.exit(1)
+
+    PrintToLog("The XenCert command executed is: \n\n")
+    XenCertCommon.printCommand(sys.argv)
+    PrintToLog('\n\n')
 
     if options.help:
         XenCertCommon.DisplayUsage()
