@@ -180,7 +180,7 @@ def GetStorageHandler(g_storage_conf):
     # Factory method to instantiate the correct handler
     if g_storage_conf["storage_type"] == "iscsi":
         return StorageHandler.StorageHandlerISCSI(g_storage_conf)
-    
+
     if g_storage_conf["storage_type"] == "hba":
         return StorageHandler.StorageHandlerHBA(g_storage_conf)
         
@@ -244,7 +244,7 @@ def DisplayStorageSpecificUsage(storage_type):
         DisplayHBAOptions()
     elif storage_type == 'isl':
         DisplayiSLOptions()
-    elif storage_type == None:
+    elif storage_type is None:
         DisplayiSCSIOptions()
         Print("")
         DisplayNfsOptions()
@@ -274,7 +274,7 @@ def printCommand(argvs):
             pass
         else:
             if option == '-i':
-                temp_argvs[option_index+1] = ':'.join(hidePassword(temp_argvs[option_index+1].split(':'), 2))
+                temp_argvs[option_index+1] = ':'.join(getCmdsWithHiddenPassword(temp_argvs[option_index + 1].split(':'), 2))
             else:
                 temp_argvs[option_index+1] = HIDDEN_PASSWORD
 
@@ -282,7 +282,17 @@ def printCommand(argvs):
         PrintToLog(argv)
         PrintToLog(' ')
 
-def hidePassword(cmd, password_index=-3):
+def getCmdsWithHiddenPassword(cmd, password_index=-3):
     cmd_with_hidden_password = cmd[:]
     cmd_with_hidden_password[password_index] = HIDDEN_PASSWORD
     return cmd_with_hidden_password
+
+def getConfigWithHiddenPassword(config, storage_type):
+    config_with_hidden_password = dict(config)
+    if storage_type == 'iscsi' and config.get('chappassword') is not None:
+        config_with_hidden_password['chappassword'] = HIDDEN_PASSWORD
+    elif storage_type == 'cifs' and config.get('password') is not None:
+        config_with_hidden_password['password'] = HIDDEN_PASSWORD
+    else:
+        pass
+    return config_with_hidden_password

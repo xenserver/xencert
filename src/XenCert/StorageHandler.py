@@ -191,8 +191,8 @@ class StorageHandler(object):
                     raise Exception("      SR creation failed.")
                 else:
                     checkPoint += 1
-
-                XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config))
+                device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
+                XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config_tmp))
                 displayOperationStatus(True)
             except Exception, e:
                 displayOperationStatus(False)
@@ -213,7 +213,7 @@ class StorageHandler(object):
         try:
             # Try cleaning up here
             # Execute trim on the SR before destroying based on type
-            if sr_ref != None:
+            if sr_ref is not None:
                 sr_type = self.session.xenapi.SR.get_type(sr_ref)
                 if sr_type in ['lvmoiscsi', 'lvmohba']:
                     Print("SR SPACE RECLAMATION TEST")
@@ -245,16 +245,16 @@ class StorageHandler(object):
             iterationCount = 100
             
             # Check if block unblock callouts have been defined. Else display an error and fail this test
-            if self.storage_conf['pathHandlerUtil'] == None:                 
+            if self.storage_conf['pathHandlerUtil'] is None:
                 raise Exception("Path handler util not specified for multipathing tests.")
                 
             if not os.path.exists(self.storage_conf['pathHandlerUtil']):                 
                 raise Exception("Path handler util specified for multipathing tests does not exist!")
             
-            if self.storage_conf['storage_type'] == 'hba' and self.storage_conf['pathInfo'] == None:
+            if self.storage_conf['storage_type'] == 'hba' and self.storage_conf['pathInfo'] is None:
                 raise Exception("Path related information not specified for storage type hba.")
             
-            if self.storage_conf['count'] != None:
+            if self.storage_conf['count'] is not None:
                 iterationCount = int(self.storage_conf['count']) + 1
             
             #1. Enable host Multipathing
@@ -406,18 +406,18 @@ class StorageHandler(object):
 
         try:
             # Try cleaning up here
-            if vbd_ref != None:
+            if vbd_ref is not None:
                 self.session.xenapi.VBD.unplug(vbd_ref)
                 XenCertPrint("Unplugged VBD %s" % vbd_ref)
                 self.session.xenapi.VBD.destroy(vbd_ref)
                 XenCertPrint("Destroyed VBD %s" % vbd_ref)
 
-            if vdi_ref != None:
+            if vdi_ref is not None:
                 self.session.xenapi.VDI.destroy(vdi_ref)
                 XenCertPrint("Destroyed VDI %s" % vdi_ref)
 
             # Try cleaning up here
-            if sr_ref != None:
+            if sr_ref is not None:
                 Print("      Destroy the SR.")
                 StorageHandlerUtil.DestroySR(self.session, sr_ref)
 
@@ -452,7 +452,7 @@ class StorageHandler(object):
             scsiIdToUse = None
             device_config = {}
             device_config['target'] = self.storage_conf['target']
-            if self.storage_conf['chapuser'] and self.storage_conf['chappasswd']:
+            if self.storage_conf['chapuser'] is not None and self.storage_conf['chappasswd'] is not None:
                    device_config['chapuser'] = self.storage_conf['chapuser']
                    device_config['chappassword'] = self.storage_conf['chappasswd']
             
@@ -463,20 +463,18 @@ class StorageHandler(object):
                         device_config['targetIQN'] = iqn
                         device_config['SCSIid'] = scsiId
                         sr_ref = self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), device_config, '0', 'XenCertTestSR', '', 'lvmoiscsi', '',False, {})
-                        device_config_tmp = dict(device_config)
-                        if 'chappassword' in device_config_tmp:
-                            device_config_tmp['chappassword'] = XenCertCommon.HIDDEN_PASSWORD
+                        device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
                         XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config_tmp))
                         scsiIdToUse = scsiId
                         break
                     except Exception, e:
                         XenCertPrint("SR creation failed with iqn: %s, and SCSI id: %s, trying the next lun." %(iqn, scsiId))
-                if scsiIdToUse == None:
+                if scsiIdToUse is None:
                     XenCertPrint("Could not create an SR with any LUNs for IQN %s, trying with other IQNs." % iqn)
                 else:
                     XenCertPrint("Created the SR with IQN %s, and SCSIid %s so exiting the loop." % (iqn, scsiIdToUse))
                     break
-            if scsiIdToUse == None:
+            if scsiIdToUse is None:
                 XenCertPrint("Could not create an SR with any IQNs." % iqn)                
                 raise Exception("Could not create any SRs with the IQN %s." % iqn)
 
@@ -522,29 +520,29 @@ class StorageHandler(object):
 
         try:
             # Try cleaning up here
-            if vbd_ref1 != None:
+            if vbd_ref1 is not None:
                 self.session.xenapi.VBD.unplug(vbd_ref1)
                 XenCertPrint("Unplugged VBD %s" % vbd_ref1)
                 self.session.xenapi.VBD.destroy(vbd_ref1)
                 XenCertPrint("Destroyed VBD %s" % vbd_ref1)
 
-            if vbd_ref2 != None:
+            if vbd_ref2 is not None:
                 self.session.xenapi.VBD.unplug(vbd_ref2)
                 XenCertPrint("Unplugged VBD %s" % vbd_ref2)
                 self.session.xenapi.VBD.destroy(vbd_ref2)
                 XenCertPrint("Destroyed VBD %s" % vbd_ref2)
 
             XenCertPrint("Destroying VDI %s" % vdi_ref1)
-            if vdi_ref1 != None:
+            if vdi_ref1 is not None:
                 self.session.xenapi.VDI.destroy(vdi_ref1)
                 XenCertPrint("Destroyed VDI %s" % vdi_ref1)
 
             XenCertPrint("Destroying VDI %s" % vdi_ref2)
-            if vdi_ref2 != None:
+            if vdi_ref2 is not None:
                 self.session.xenapi.VDI.destroy(vdi_ref2)
                 XenCertPrint("Destroyed VDI %s" % vdi_ref2)
 
-            if sr_ref != None:
+            if sr_ref is not None:
                 # First get the PBDs
                 pbds = self.session.xenapi.SR.get_PBDs(sr_ref)
                 XenCertPrint("Got the list of pbds for the sr %s as %s" % (sr_ref, pbds))
@@ -622,7 +620,7 @@ class StorageHandler(object):
 
         try:
             # Try cleaning up here
-            if sr_ref != None:
+            if sr_ref is not None:
                 Print("      Destroy the SR.")
                 StorageHandlerUtil.DestroySR(self.session, sr_ref)                
             checkPoint += 1
@@ -842,7 +840,7 @@ class StorageHandler(object):
 
     def Destroy_SR(self, sr_ref):
         XenCertPrint("Destroy SR")
-        if sr_ref == None:
+        if sr_ref is None:
             return        
         try:
             pbd_list = self.session.xenapi.SR.get_PBDs(sr_ref)
@@ -1052,7 +1050,7 @@ class StorageHandler(object):
             if fd != -1:
                 ret = close(fd)
 
-            if self.sr_ref != None:
+            if self.sr_ref is not None:
                 Print(">>>> Delete VDIs on the SR")
                 for vdi in self.session.xenapi.SR.get_VDIs(self.sr_ref):
                     if self.session.xenapi.VDI.get_managed(vdi):
@@ -1189,7 +1187,7 @@ class StorageHandler(object):
                 displayOperationStatus(False)
         
         finally:
-            if self.sr_ref != None:
+            if self.sr_ref is not None:
                 Print(">>>   Delete VDIs on the SR")
                 for vdi in self.session.xenapi.SR.get_VDIs(self.sr_ref):
                     if self.session.xenapi.VDI.get_managed(vdi):
@@ -1406,7 +1404,7 @@ class StorageHandler(object):
                 displayOperationStatus(False)
 
         finally:
-            if self.sr_ref != None:
+            if self.sr_ref is not None:
                 Print(">>>> Delete VDIs on the SR")
                 for vdi in self.session.xenapi.SR.get_VDIs(self.sr_ref):
                     if self.session.xenapi.VDI.get_managed(vdi):
@@ -1671,7 +1669,7 @@ class StorageHandler(object):
                 displayOperationStatus(False)
         
         finally:
-            if self.sr_ref != None:
+            if self.sr_ref is not None:
                 Print(">>>> Delete VDIs on the SR")
                 for vdi in self.session.xenapi.SR.get_VDIs(self.sr_ref):
                     if self.session.xenapi.VDI.get_managed(vdi):
@@ -2090,7 +2088,7 @@ class StorageHandlerISCSI(BlockStorageHandler):
                 displayOperationStatus(False)
 
         finally:
-            if self.sr_ref != None:
+            if self.sr_ref is not None:
                 Print(">>>>>    Delete VDIs on the SR")
                 for vdi in self.session.xenapi.SR.get_VDIs(self.sr_ref):
                     if self.session.xenapi.VDI.get_managed(vdi):
@@ -2138,16 +2136,17 @@ class StorageHandlerISCSI(BlockStorageHandler):
                 device_config['targetIQN'] = '*'
             else:
                 device_config['targetIQN'] = self.iqn
-            if self.storage_conf['chapuser']!= None and self.storage_conf['chappasswd'] != None:
+            if self.storage_conf['chapuser'] is not None and self.storage_conf['chappasswd'] is not None:
                 device_config['chapuser'] = self.storage_conf['chapuser']
                 device_config['chappassword'] = self.storage_conf['chappasswd']
             # try to create an SR with one of the LUNs mapped, if all fails throw an exception
             for scsiId in listSCSIId:
                 try:                    
                     device_config['SCSIid'] = scsiId
-                    XenCertPrint("The SR create parameters are %s, %s" % (util.get_localhost_uuid(self.session), device_config))
+                    device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
+                    XenCertPrint("The SR create parameters are %s, %s" % (util.get_localhost_uuid(self.session), device_config_tmp))
                     sr_ref = self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), device_config, '0', 'XenCertTestSR', '', 'lvmoiscsi', '',True, {})
-                    XenCertPrint("Created the SR %s using device_config %s" % (sr_ref, device_config))
+                    XenCertPrint("Created the SR %s" % sr_ref)
                     displayOperationStatus(True)
                     break
 
@@ -2155,7 +2154,7 @@ class StorageHandlerISCSI(BlockStorageHandler):
                     XenCertPrint("Could not perform SR control tests with device %s, trying other devices." % scsiId)
                     continue
                     
-            if sr_ref == None:
+            if sr_ref is None:
                 displayOperationStatus(False)
                 retVal = False
         except Exception, e:
@@ -2198,7 +2197,8 @@ class StorageHandlerISCSI(BlockStorageHandler):
             
             return True
         except Exception, e:
-            Print("   - Failed to get path status for device_config: %s. Exception: %s" % (device_config, str(e)))
+            device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
+            Print("   - Failed to get path status for device_config: %s. Exception: %s" % (device_config_tmp, str(e)))
             return False            
 
     def DisplayPathStatus(self):
@@ -2497,7 +2497,7 @@ class StorageHandlerHBA(BlockStorageHandler):
                     XenCertPrint("Could not perform SR control tests with device %s, trying other devices." % scsiId)
                     continue
 
-            if sr_ref == None:
+            if sr_ref is None:
                 displayOperationStatus(False)
                 retVal = False
         except Exception, e:
@@ -2861,7 +2861,7 @@ class StorageHandlerNFS(StorageHandler):
             displayOperationStatus(False)
             raise Exception(("   - Failed to create SR. Exception: %s" % str(e)))
                     
-        if sr_ref == None:
+        if sr_ref is None:
             displayOperationStatus(False)
             retVal = False        
         
@@ -3041,7 +3041,7 @@ class StorageHandlerNFS(StorageHandler):
 
             try:
                 # Try cleaning up here
-                if sr_ref != None:
+                if sr_ref is not None:
                     StorageHandlerUtil.DestroySR(self.session, sr_ref)
                     checkPoint += 1
             except Exception, e:
@@ -3077,16 +3077,17 @@ class StorageHandlerCIFS(StorageHandler):
         try:
             # Create an SR on the CIFS server/share provided.
             Print("      Creating the SR.")
-            XenCertPrint("The SR create parameters are %s, %s" % (util.get_localhost_uuid(self.session), device_config))
+            device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
+            XenCertPrint("The SR create parameters are %s, %s" % (util.get_localhost_uuid(self.session), device_config_tmp))
             sr_ref = self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), device_config, '0', 'XenCertTestSR', '', 'cifs', '',False, {})
-            XenCertPrint("Created the SR %s using device_config %s" % (sr_ref, device_config))
+            XenCertPrint("Created the SR %s" % sr_ref)
             displayOperationStatus(True)
 
         except Exception, e:
             displayOperationStatus(False)
             raise Exception(("   - Failed to create SR. Exception: %s" % str(e)))
 
-        if sr_ref == None:
+        if sr_ref is None:
             displayOperationStatus(False)
             retVal = False
 
@@ -3217,7 +3218,8 @@ class StorageHandlerCIFS(StorageHandler):
                 else:
                     checkPoint += 1
 
-                XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config))
+                device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
+                XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config_tmp))
                 displayOperationStatus(True)
             except Exception, e:
                 displayOperationStatus(False)
@@ -3237,7 +3239,7 @@ class StorageHandlerCIFS(StorageHandler):
 
         try:
             # Try cleaning up here
-            if sr_ref != None:
+            if sr_ref is not None:
                 StorageHandlerUtil.DestroySR(self.session, sr_ref)
                 checkPoint += 1
         except Exception, e:
@@ -3437,7 +3439,7 @@ class StorageHandlerGFS2(StorageHandler):
                         "Could not perform SR control tests with device %s,"
                         " trying other devices." % scsiId)
 
-                if sr_ref == None:
+                if sr_ref is None:
                     displayOperationStatus(False)
                     retVal = False
         except Exception as e:
