@@ -350,7 +350,7 @@ def extract_xml_from_exception(e):
     return ','.join(str(e).split(',')[3:])
 
 # The returned structure are a list of portals, and a list of SCSIIds for the specified IQN. 
-def GetHBAInformation(session, storage_conf):
+def GetHBAInformation(session, storage_conf, sr_type="lvmohba"):
     try:
 	retVal = True
 	list = []
@@ -364,7 +364,7 @@ def GetHBAInformation(session, storage_conf):
 			HBAFilter[hba] = 1
 	
 	try:
-	    session.xenapi.SR.probe(util.get_localhost_uuid(session), device_config, 'lvmohba')
+	    session.xenapi.SR.probe(util.get_localhost_uuid(session), device_config, sr_type)
 	except Exception, e:
 	    XenCertPrint("Got the probe data as: %s" % str(e))
 	    # Now extract the HBA information from this data.
@@ -408,7 +408,7 @@ def GetHBAInformation(session, storage_conf):
 	
 		XenCertPrint("The HBA information list being returned is: %s" % list)
 	    except Exception, e:
-		XenCertPrint("Failed to parse lvmohba probe xml. Exception: %s" % str(e))
+		XenCertPrint("Failed to parse %s probe xml. Exception: %s" % (sr_type, str(e)))
 	     
     except Exception, e: 
 	XenCertPrint("There was an exception in GetHBAInformation: %s." % str(e))
