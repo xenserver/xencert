@@ -40,7 +40,7 @@ def blockUnblockPort(blockOrUnblock, ip, username, password, port):
             cmd = [os.path.join(os.getcwd(),'blockunblockHBAPort-qlogic.sh'), ip, username, password, port, 'offline']
         else:
             cmd = [os.path.join(os.getcwd(),'blockunblockHBAPort-qlogic.sh'), ip, username, password, port, 'online']
-        XenCertPrint("calling %s" % ' '.join(XenCertCommon.hidePassword(cmd)))
+        XenCertPrint("calling %s" % ' '.join(XenCertCommon.getCmdsWithHiddenPassword(cmd)))
         util.doexec(cmd, '')
     except Exception, e:
         util.SMlog("There was an exception in blocking port: %s" % port)

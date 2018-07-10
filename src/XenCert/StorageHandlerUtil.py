@@ -30,6 +30,8 @@ import commands
 import time
 import mpath_dmp
 import xs_errors
+import XenCertCommon
+
 
 ISCSI_PROCNAME = "iscsi_tcp"
 timeTaken = '' 
@@ -241,7 +243,7 @@ def GetListPortalScsiIdForIqn(session, server, targetIqn, chapUser = None, chapP
 	listSCSIId= []
 	device_config = {}
 	device_config['target'] = server
-	if chapUser != None and chapPassword != None:
+	if chapUser is not None and chapPassword is not None:
 	    device_config['chapuser'] = chapUser
 	    device_config['chappassword'] = chapPassword
 
@@ -299,7 +301,8 @@ def GetListPortalScsiIdForIqn(session, server, targetIqn, chapUser = None, chapP
 	for iqn in targetIqn.split(','):
 	    try:
 		device_config['targetIQN'] = iqn
-		XenCertPrint("Probing with device config: %s" % device_config)
+		device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, 'iscsi')
+		XenCertPrint("Probing with device config: %s" % device_config_tmp)
 		session.xenapi.SR.probe(util.get_localhost_uuid(session), device_config, 'lvmoiscsi')
 	    except Exception, e:
 		XenCertPrint("Got the probe data as: %s" % str(e))
@@ -356,7 +359,7 @@ def GetHBAInformation(session, storage_conf):
 	HBAFilter = {}
 
 	# Generate a map of the HBAs that the user want to test against.
-	if storage_conf['adapters'] != None:
+	if storage_conf['adapters'] is not None:
 	    for hba in storage_conf['adapters'].split(','):
 			HBAFilter[hba] = 1
 	
@@ -680,13 +683,13 @@ def PerformSRControlPathTests(session, sr_ref):
     
     try:
 	# Try cleaning up here
-	if vbd_ref != None: 
+	if vbd_ref is not None:
 	    session.xenapi.VBD.unplug(vbd_ref)
 	    XenCertPrint("Unplugged VBD %s" % vbd_ref)
 	    session.xenapi.VBD.destroy(vbd_ref)
 	    XenCertPrint("Destroyed VBD %s" % vbd_ref)
 
-	if vdi_ref != None:
+	if vdi_ref is not None:
 	    session.xenapi.VDI.destroy(vdi_ref)
 	    XenCertPrint("Destroyed VDI %s" % vdi_ref)
     except Exception, e:
