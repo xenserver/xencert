@@ -1854,6 +1854,13 @@ class BlockStorageHandler(StorageHandler):
                 self.storage_conf['storage_type'] == "fcoe":
             return False
 
+        if pool['restrictions']['restrict_corosync'] == "true":
+            raise Exception("You are required to run these tests on a licensed host, with either XenServer Enterprise "
+                            "or Citrix Virtual Apps or Desktop entitlement. This is so that the GFS2 SR can "
+                            "be tested. If you are a Citrix Partner then demo licenses can be acquired through "
+                            "the Citrix Ready programme. See https://www.citrix.co.uk/partner-programs/citrix-ready/ "
+                            "for more details.")
+
         if not self.session.xenapi.Cluster.get_all():
             # cluster not enabled
             Print("Enabling clustering")
