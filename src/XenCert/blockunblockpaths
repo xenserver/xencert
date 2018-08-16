@@ -29,8 +29,8 @@ import util
 import xslib
 import os
 import time
-from StorageHandler import XenCertPrint
-from StorageHandler import Print
+from XenCertLog import Print, XenCertPrint
+
 
 def help():
     Print("Usage: blockunblockpaths <blockunblockscript> <block/unblock> <noOfPaths> <passthrough-information>")

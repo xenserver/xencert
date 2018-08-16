@@ -15,30 +15,25 @@
 
 """Storage handler classes for various storage drivers"""
 import copy
-
-import StorageHandlerUtil
-from StorageHandlerUtil import Print
-from StorageHandlerUtil import PrintOnSameLine
-from StorageHandlerUtil import XenCertPrint
-from StorageHandlerUtil import displayOperationStatus
-from StorageHandlerUtil import DISKDATATEST
-import scsiutil, iscsilib
-import util
-import glob
 from threading import Thread
 import time
 import os
-import BaseISCSI
-import random
-import nfs
 import commands
+import glob
+import random
+from xml.dom import minidom
+import StorageHandlerUtil
+from XenCertLog import Print, PrintOnSameLine, XenCertPrint
+from XenCertCommon import displayOperationStatus, getConfigWithHiddenPassword
+import scsiutil
+import iscsilib
+import util
+import BaseISCSI
+import nfs
 from lvhdutil import VG_LOCATION,VG_PREFIX
 from lvutil import MDVOLUME_NAME, remove, rename
-from srmetadata import LVMMetadataHandler, updateLengthInHeader, open_file, \
-    close
+from srmetadata import LVMMetadataHandler, updateLengthInHeader, open_file, close
 import metadata
-from xml.dom import minidom
-import XenCertCommon
 
 
 retValIO = 0
@@ -191,7 +186,7 @@ class StorageHandler(object):
                     raise Exception("      SR creation failed.")
                 else:
                     checkPoint += 1
-                device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
+                device_config_tmp = getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
                 XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config_tmp))
                 displayOperationStatus(True)
             except Exception, e:
@@ -463,7 +458,7 @@ class StorageHandler(object):
                         device_config['targetIQN'] = iqn
                         device_config['SCSIid'] = scsiId
                         sr_ref = self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), device_config, '0', 'XenCertTestSR', '', 'lvmoiscsi', '',False, {})
-                        device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
+                        device_config_tmp = getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
                         XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config_tmp))
                         scsiIdToUse = scsiId
                         break
@@ -2148,7 +2143,7 @@ class StorageHandlerISCSI(BlockStorageHandler):
             for scsiId in listSCSIId:
                 try:                    
                     device_config['SCSIid'] = scsiId
-                    device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
+                    device_config_tmp = getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
                     XenCertPrint("The SR create parameters are %s, %s" % (util.get_localhost_uuid(self.session), device_config_tmp))
                     sr_ref = self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), device_config, '0', 'XenCertTestSR', '', 'lvmoiscsi', '',True, {})
                     XenCertPrint("Created the SR %s" % sr_ref)
@@ -2202,7 +2197,7 @@ class StorageHandlerISCSI(BlockStorageHandler):
             
             return True
         except Exception, e:
-            device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
+            device_config_tmp = getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
             Print("   - Failed to get path status for device_config: %s. Exception: %s" % (device_config_tmp, str(e)))
             return False            
 
@@ -2410,11 +2405,11 @@ class StorageHandlerISCSI(BlockStorageHandler):
                             cmd = ['dd', 'if=/dev/zero', 'of=%s' % tuple[2], 'bs=1M', 'count=1', 'conv=nocreat', 'oflag=direct']
                             util.pread(cmd)
                                                         
-                            cmd = [DISKDATATEST, 'write', '1', tuple[2]]
+                            cmd = [StorageHandlerUtil.DISKDATATEST, 'write', '1', tuple[2]]
                             XenCertPrint("The command to be fired is: %s" % cmd)
                             util.pread(cmd)
                             
-                            cmd = [DISKDATATEST, 'verify', '1', tuple[2]]
+                            cmd = [StorageHandlerUtil.DISKDATATEST, 'verify', '1', tuple[2]]
                             XenCertPrint("The command to be fired is: %s" % cmd)
                             util.pread(cmd)
                             
@@ -2779,11 +2774,11 @@ class StorageHandlerHBA(BlockStorageHandler):
                             cmd = ['dd', 'if=/dev/zero', 'of=%s' % device, 'bs=1M', 'count=1', 'conv=nocreat', 'oflag=direct']
                             util.pread(cmd)
 
-                            cmd = [DISKDATATEST, 'write', '1', device]
+                            cmd = [StorageHandlerUtil.DISKDATATEST, 'write', '1', device]
                             XenCertPrint("The command to be fired is: %s" % cmd)
                             util.pread(cmd)
                             
-                            cmd = [DISKDATATEST, 'verify', '1', device]
+                            cmd = [StorageHandlerUtil.DISKDATATEST, 'verify', '1', device]
                             XenCertPrint("The command to be fired is: %s" % cmd)
                             util.pread(cmd)
                             
@@ -3080,7 +3075,7 @@ class StorageHandlerCIFS(StorageHandler):
         try:
             # Create an SR on the CIFS server/share provided.
             Print("      Creating the SR.")
-            device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
+            device_config_tmp = getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
             XenCertPrint("The SR create parameters are %s, %s" % (util.get_localhost_uuid(self.session), device_config_tmp))
             sr_ref = self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), device_config, '0', 'XenCertTestSR', '', 'cifs', '',False, {})
             XenCertPrint("Created the SR %s" % sr_ref)
@@ -3220,7 +3215,7 @@ class StorageHandlerCIFS(StorageHandler):
                 else:
                     checkPoint += 1
 
-                device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
+                device_config_tmp = getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
                 XenCertPrint("Created the SR %s using device_config: %s" % (sr_ref, device_config_tmp))
                 displayOperationStatus(True)
             except Exception, e:
@@ -3468,3 +3463,22 @@ class StorageHandlerGFS2(StorageHandler):
             raise Exception("   - None of the specificied SCSI IDs are available."
                             " Please confirm that the IDs you provided are valid and that the LUNs are not already in use.")
         return list(avaiableSCSIids)
+
+
+def GetStorageHandler(g_storage_conf):
+    # Factory method to instantiate the correct handler
+    if g_storage_conf["storage_type"] == "iscsi":
+        return StorageHandlerISCSI(g_storage_conf)
+
+    if g_storage_conf["storage_type"] in ["hba", "fcoe"]:
+        return StorageHandlerHBA(g_storage_conf)
+
+    if g_storage_conf["storage_type"] == "nfs":
+        return StorageHandlerNFS(g_storage_conf)
+
+    if g_storage_conf["storage_type"] == "cifs":
+        return StorageHandlerCIFS(g_storage_conf)
+
+    if g_storage_conf["storage_type"] == "isl":
+        return StorageHandlerISL(g_storage_conf)
+    return None

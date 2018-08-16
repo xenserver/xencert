@@ -14,31 +14,27 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 """Storage handler classes for various storage drivers"""
-import sys
-sys.path.insert(0, "/opt/xensource/sm")
-import scsiutil
-import util
+import os
+import re
+import time
 import glob
 import xml.dom.minidom
+from XenCertLog import Print, PrintOnSameLine, XenCertPrint
+from XenCertCommon import displayOperationStatus, getConfigWithHiddenPassword
+import scsiutil
+import util
 import lvutil, vhdutil
 from lvhdutil import MSIZE
 import iscsilib
 import mpath_cli
-import os
-import re
-import commands
-import time
 import mpath_dmp
 import xs_errors
-import XenCertCommon
 
 
 ISCSI_PROCNAME = "iscsi_tcp"
 timeTaken = '' 
 bytesCopied = ''
 speedOfCopy = ''
-logfile = None
-logfilename = None
 timeLimitControlInSec = 18000
 
 MAX_TIMEOUT = 15
@@ -70,58 +66,6 @@ multiPathDefaultsMap = { 'udev_dir':'/dev',
 			    'user_friendly_names':'no',
 			    'bindings_file':"/var/lib/multipath/bindings" }
 
-def PrintToLog(message):
-    try:
-	global logfile
-	logfile.write(message)
-        logfile.flush()
-    except:
-	pass
-     
-def Print(message):
-    # Print to the stdout and to a temp file.
-    try:
-	sys.stdout.write(message)
-	sys.stdout.write('\n')
-	global logfile
-	logfile.write(message)
-	logfile.write('\n')
-        logfile.flush()
-    except:
-	pass
-
-def PrintOnSameLine(message):
-    # Print to the stdout and to a temp file.
-    try:
-	sys.stdout.write(message)
-	global logfile
-	logfile.write(message)	
-        logfile.flush()
-    except:
-	pass
-    
-def InitLogging():
-    global logfile
-    global logfilename
-    logfilename = os.path.join('/tmp', 'XenCert-' + commands.getoutput('uuidgen') + '.log')
-    logfile = open(logfilename, 'a')
-
-def UnInitLogging():
-    global logfile
-    logfile.close()
-    
-def GetLogFileName():
-    global logfilename
-    return logfilename
-
-def XenCertPrint(message):
-    util.SMlog("XenCert - " + message)
-
-def displayOperationStatus(passOrFail, customValue = ''):
-    if passOrFail:
-        Print("                                                                                                   PASS [Completed%s]" % customValue)
-    else:
-        Print("                                                                                                   FAIL [%s]" % time.asctime(time.localtime()))
 
 def _init_adapters():
     # Generate a list of active adapters
@@ -301,7 +245,7 @@ def GetListPortalScsiIdForIqn(session, server, targetIqn, chapUser = None, chapP
 	for iqn in targetIqn.split(','):
 	    try:
 		device_config['targetIQN'] = iqn
-		device_config_tmp = XenCertCommon.getConfigWithHiddenPassword(device_config, 'iscsi')
+		device_config_tmp = getConfigWithHiddenPassword(device_config, 'iscsi')
 		XenCertPrint("Probing with device config: %s" % device_config_tmp)
 		session.xenapi.SR.probe(util.get_localhost_uuid(session), device_config, 'lvmoiscsi')
 	    except Exception, e:
@@ -472,7 +416,7 @@ def DestroySR(session, sr_ref):
 	XenCertPrint("Got the list of pbds for the sr %s as %s" % (sr_ref, pbds))
 	XenCertPrint(" - Now unplug PBDs for the SR.")
 	for pbd in pbds:
-	    XenCertPrint("Unplugging PBD: %s" % pbd )                          
+	    XenCertPrint("Unplugging PBD: %s" % pbd)
 	    session.xenapi.PBD.unplug(pbd)	    
 
 	XenCertPrint("Now destroying the SR: %s" % sr_ref)
@@ -532,7 +476,7 @@ def CreateMaxSizeVDIAndVBD(session, sr_ref):
 	    XenCertPrint("Got free devs as %s" % freedevs)
 	    if not len(freedevs):		
 		raise Exception("No free devs found for VM: %s!" % vm_ref)
-	    XenCertPrint("Allowed devs: %s (using %s)" % (freedevs,freedevs[0]))
+	    XenCertPrint("Allowed devs: %s (using %s)" % (freedevs, freedevs[0]))
 
 	    # Populate VBD args
 	    args={}
@@ -895,12 +839,12 @@ def _find_LUN(svid):
         return []
     else:
         device=mpath_dmp.path(SCSIid)
-        XenCertPrint("DEBUG: device path : %s"%(device))
+        XenCertPrint("DEBUG: device path : %s" % (device))
         return [device]
 
 def WriteDataToVDI(session, vbd_ref, startSec, endSec):
-    XenCertPrint('WriteDataToVDI(vbd_ref=%s, startSec=%s, endSec=%s, ->Enter)'\
-             % (vbd_ref, startSec, endSec))
+    XenCertPrint('WriteDataToVDI(vbd_ref=%s, startSec=%s, endSec=%s, ->Enter)' \
+                 % (vbd_ref, startSec, endSec))
     try:
         device = os.path.join('/dev/', session.xenapi.VBD.get_device(vbd_ref))
 
@@ -918,8 +862,8 @@ def WriteDataToVDI(session, vbd_ref, startSec, endSec):
     XenCertPrint('WriteDataToVDI() -> Exit')
 
 def VerifyDataOnVDI(session, vbd_ref, startSec, endSec):
-    XenCertPrint('VerifyDataOnVDI(vdi_ref=%s, startSec=%s, endSec=%s ->Enter)'\
-            % (vbd_ref, startSec, endSec))
+    XenCertPrint('VerifyDataOnVDI(vdi_ref=%s, startSec=%s, endSec=%s ->Enter)' \
+                 % (vbd_ref, startSec, endSec))
     try:
         device = os.path.join('/dev/', session.xenapi.VBD.get_device(vbd_ref))
 
