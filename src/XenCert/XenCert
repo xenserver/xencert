@@ -131,7 +131,7 @@ def main():
     
     if options.metadata:
         Print("Performing metadata tests.")
-        retValMetadata = handler.MetaDataTests()
+        (retValMetadata, checkPointsMetaData, totalCheckPointsMetaData) = handler.MetaDataTests()
         Print("***********************************************************************")
         timeOfCompletionMetadata = time.asctime(time.localtime())
 
@@ -161,7 +161,7 @@ def main():
         
     if options.metadata:
         Print("***********************************************************************")
-        showReport('Metadata test results', retValMetadata, 1, 1, timeOfCompletionMetadata)
+        showReport('Metadata test results', retValMetadata, checkPointsMetaData, totalCheckPointsMetaData, timeOfCompletionMetadata)
             
     Print("***********************************************************************")
     Print("End of XenCert certification suite.")
