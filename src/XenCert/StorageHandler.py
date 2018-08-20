@@ -638,6 +638,7 @@ class StorageHandler(object):
         return (retVal, checkPoint, totalCheckPoints)
     
     def DataIntegrityTests(self):
+        Print("DataTests not applicable to %s SR type." % self.storage_conf['storage_type'].upper())
         return (True, 1, 1) 
 
     # blockOrUnblock = True for block, False for unblock
@@ -854,9 +855,8 @@ class StorageHandler(object):
             return False
         
     def MetaDataTests(self):
-        Print("> Metadata tests")
-        Print("----------------")
-        return True 
+        Print("MetaDataTests not applicable to %s SR type." % self.storage_conf['storage_type'].upper())
+        return (True, 1, 1)
         
     def metadata_sr_attach_tests(self):
         try:
@@ -1917,9 +1917,6 @@ class StorageHandlerISCSI(BlockStorageHandler):
         self.iqn = storage_conf['targetIQN']
         super(StorageHandlerISCSI, self).__init__(storage_conf)
 
-    def MetaDataTests(self):
-        Print("MetaDataTests not applicable to ISCSI SR type.")
-        return False       
         
     def getMetaDataRec(self, params = {}):
         XenCertPrint("getMetaDataRec Enter")
@@ -2571,10 +2568,6 @@ class StorageHandlerHBA(BlockStorageHandler):
         except Exception, e:            
             raise e
 
-    def MetaDataTests(self):
-        Print("MetaDataTests not applicable to HBA SR type.")
-        return False       
- 
     def FunctionalTests(self):
         retVal = True
         checkPoint = 0
@@ -2829,6 +2822,7 @@ class StorageHandlerHBA(BlockStorageHandler):
         XenCertPrint("Reached StorageHandlerHBA destructor")
         StorageHandler.__del__(self)
 
+
 class StorageHandlerNFS(StorageHandler):
 
     def __init__(self, storage_conf):
@@ -2879,10 +2873,6 @@ class StorageHandlerNFS(StorageHandler):
     def __del__(self):
         XenCertPrint("Reached StorageHandlerNFS destructor")
         StorageHandler.__del__(self)
-        
-    def MetaDataTests(self):
-        Print("MetaDataTests not applicable to NFS SR type.")
-        return False
 
     def FunctionalTests(self):
         retVal = True
@@ -3062,9 +3052,11 @@ class StorageHandlerNFS(StorageHandler):
         return (retVal, checkPoint, totalCheckPoints)
 
     def MPConfigVerificationTests(self):
+        Print("MultiPathTests not applicable to NFS SR type.")
         return (True, 1, 1)
 
     def PoolTests(self):
+        Print("PoolTests not applicable to NFS SR type.")
         return (True, 1, 1)
 
 
@@ -3106,14 +3098,13 @@ class StorageHandlerCIFS(StorageHandler):
         XenCertPrint("Reached StorageHandlerCIFS destructor")
         StorageHandler.__del__(self)
 
-    def MetaDataTests(self):
-        Print("MetaDataTests not applicable to CIFS SR type.")
-        return False
 
     def PoolTests(self):
+        Print("PoolTests not applicable to CIFS SR type.")
         return (True, 1, 1)
 
     def MPConfigVerificationTests(self):
+        Print("MultiPathTests not applicable to CIFS SR type.")
         return (True, 1, 1)
 
     def FunctionalTests(self):
