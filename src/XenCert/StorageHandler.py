@@ -2478,7 +2478,6 @@ class StorageHandlerHBA(BlockStorageHandler):
         sr_ref = None
         try:
             XenCertPrint("First use XAPI to get information for creating an SR.")
-            listSCSIId = []
             (retVal, listAdapters, listSCSIId) = StorageHandlerUtil. \
                                                GetHBAInformation(self.session, \
                                                self.storage_conf, sr_type=self.sr_type)
@@ -2486,11 +2485,14 @@ class StorageHandlerHBA(BlockStorageHandler):
                 raise Exception("   - Failed to get available HBA information on the host.")
             if len(listSCSIId) == 0:                
                 raise Exception("   - Failed to get available LUNs on the host.")
-
+            avaiableSCSIids = set(listSCSIId) & set(self.storage_conf['scsiIDs'].split(','))
+            if not avaiableSCSIids:
+                raise Exception("   - None of the specificied SCSI IDs are available. "
+                                "Please confirm that the IDs you provided are valid and that the LUNs are not already in use")
             # Create an SR
             # try to create an SR with one of the LUNs mapped, if all fails throw an exception
             Print("      Creating the SR.")
-            for scsiId in listSCSIId:
+            for scsiId in avaiableSCSIids:
                 try:
                     device_config['SCSIid'] = scsiId
                     XenCertPrint("The SR create parameters are %s, %s" % (util.get_localhost_uuid(self.session), device_config))
@@ -3378,10 +3380,7 @@ class StorageHandlerGFS2(StorageHandler):
             self.device_config['SCSIid'] = storage_conf['SCSIid']
         elif 'scsiIDs' in storage_conf and storage_conf['scsiIDs']:
             # HBA provides a list of SCSI ids, we only want one
-            if isinstance(storage_conf['scsiIDs'], list):
-                self.device_config['SCSIid'] = storage_conf['scsiIDs'][0]
-            else:
-                self.device_config['SCSIid'] = storage_conf['scsiIDs']
+            self.device_config['SCSIid'] = storage_conf['scsiIDs'].split(',')[0]
 
         # iSCSI also needs target, IQN
         if self.device_config['provider'] == 'iscsi':
@@ -3403,10 +3402,9 @@ class StorageHandlerGFS2(StorageHandler):
             elif isinstance(self.base_handler, StorageHandlerHBA):
                 listSCSIId = self.getHbaScsiIds()
 
-            Print("      Creating the SR.")
-
             device_config = copy.deepcopy(self.device_config)
 
+            Print("      Creating the SR.")
             # try to create an SR with one of the LUNs mapped, if all fails
             # throw an exception
             for scsiId in listSCSIId:
@@ -3461,4 +3459,12 @@ class StorageHandlerGFS2(StorageHandler):
     def getHbaScsiIds(self):
         (retVal, listAdapters, listSCSIId) = StorageHandlerUtil.\
             GetHBAInformation(self.session, self.storage_conf)
-        return listSCSIId
+        if not retVal:
+            raise Exception("   - Failed to get available HBA information on the host.")
+        if len(listSCSIId) == 0:
+            raise Exception("   - Failed to get available LUNs on the host.")
+        avaiableSCSIids = set(listSCSIId) & set(self.storage_conf['scsiIDs'].split(','))
+        if not avaiableSCSIids:
+            raise Exception("   - None of the specificied SCSI IDs are available."
+                            " Please confirm that the IDs you provided are valid and that the LUNs are not already in use.")
+        return list(avaiableSCSIids)
