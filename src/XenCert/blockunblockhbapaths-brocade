@@ -22,7 +22,7 @@ import util
 import xslib
 import random
 import os
-from StorageHandlerUtil import XenCertPrint
+from XenCertLog import XenCertPrint
 import XenCertCommon
 
 

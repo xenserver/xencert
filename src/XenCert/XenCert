@@ -17,23 +17,16 @@
 
 """Manual Xen Certification script"""
 
-import os
+
 import sys
-import XenCertCommon
-from StorageHandlerUtil import Print
-from StorageHandlerUtil import PrintToLog
-from StorageHandlerUtil import InitLogging
-from StorageHandlerUtil import UnInitLogging
-from StorageHandlerUtil import GetLogFileName
+sys.path.append("/opt/xensource/sm")
 from datetime import datetime
-import time, commands
+import time
+import commands
+import XenCertCommon
+import StorageHandler
+from XenCertLog import InitLogging, UnInitLogging, PrintToLog, Print, GetLogFileName
 
-TAG_PASS = "[PASS]"
-TAG_FAIL = "[FAIL]"
-
-def showReport(msg, result, checkPoints=1, totalCheckPoints=1, time=0):
-    Print("%-50s: %s, Pass percentage: %d, Completed: %s" %
-          (msg, TAG_PASS if result else TAG_FAIL, int((checkPoints * 100) / totalCheckPoints), time))
 
 def main():
     """Main Routine"""
@@ -68,7 +61,7 @@ def main():
     # Now is the time to instantiate the right handler based on the
     # requested storage type and hand it over to the handler to
     # perform the certification process
-    handler = XenCertCommon.GetStorageHandler(g_storage_conf)
+    handler = StorageHandler.GetStorageHandler(g_storage_conf)
     build = commands.getoutput('cat /etc/xensource-inventory | grep BUILD_NUMBER')
     Print("********************** Welcome to XenCert 2.5 %s *****************"%build)
     Print("Test start time: %s" % time.asctime(time.localtime()))
@@ -138,31 +131,31 @@ def main():
     # Now display all the results
     if options.multipath or testAll:
         Print("***********************************************************************")
-        showReport('Multipath configuration verification results', retValMP, checkPointsMP, totalCheckPointsMP,
+        XenCertCommon.showReport('Multipath configuration verification results', retValMP, checkPointsMP, totalCheckPointsMP,
                    timeOfCompletionMP)
 
     if options.control or testAll:     	
         Print("***********************************************************************")
-        showReport('Control path stress test results', retValControl, checkPointsControl, totalCheckPointsControl,
+        XenCertCommon.showReport('Control path stress test results', retValControl, checkPointsControl, totalCheckPointsControl,
                    timeOfCompletionControl)
 
-    if options.pool or testAll:	
+    if options.pool or testAll:
         Print("***********************************************************************")
-        showReport('Pool test results', retValPool, checkPointsPool, totalCheckPointsPool, timeOfCompletionPool)
+        XenCertCommon.showReport('Pool test results', retValPool, checkPointsPool, totalCheckPointsPool, timeOfCompletionPool)
 
     if options.functional or testAll:     	
         Print("***********************************************************************")
-        showReport('Functional test results', retValFunctional, checkPointsFunctional, totalCheckPointsFunctional,
+        XenCertCommon.showReport('Functional test results', retValFunctional, checkPointsFunctional, totalCheckPointsFunctional,
                    timeOfCompletionFunctional)
 
     if options.data or testAll:         
         Print("***********************************************************************")
-        showReport('Data test results', retValData, checkPointsData, totalCheckPointsData, timeOfCompletionData)
+        XenCertCommon.showReport('Data test results', retValData, checkPointsData, totalCheckPointsData, timeOfCompletionData)
         
     if options.metadata:
         Print("***********************************************************************")
-        showReport('Metadata test results', retValMetadata, checkPointsMetaData, totalCheckPointsMetaData, timeOfCompletionMetadata)
-            
+        XenCertCommon.showReport('Metadata test results', retValMetadata, checkPointsMetaData, totalCheckPointsMetaData, timeOfCompletionMetadata)
+
     Print("***********************************************************************")
     Print("End of XenCert certification suite.")
     Print("Please find the report for this test run at: %s" % GetLogFileName())
@@ -187,6 +180,7 @@ def main():
         sys.exit(0)
     else:
         sys.exit(1)
-    
+
+
 if __name__ == "__main__":
     main()

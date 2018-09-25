@@ -14,15 +14,16 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 """Manual Xen Certification script"""
-
+import time
 from optparse import OptionParser
-import StorageHandler
-from StorageHandlerUtil import Print
-from StorageHandlerUtil import PrintToLog
+from XenCertLog import PrintToLog, Print
 
 
 storage_type = "storage type (iscsi, hba, nfs, isl, fcoe)"
 HIDDEN_PASSWORD = '*' * 8
+
+TAG_PASS = "[PASS]"
+TAG_FAIL = "[FAIL]"
 
 # argument format:
 #  keyword
@@ -176,25 +177,6 @@ def valid_arguments(options, g_storage_conf):
         
     return 1
 
-def GetStorageHandler(g_storage_conf):
-    # Factory method to instantiate the correct handler
-    if g_storage_conf["storage_type"] == "iscsi":
-        return StorageHandler.StorageHandlerISCSI(g_storage_conf)
-    
-    if g_storage_conf["storage_type"] in ["hba", "fcoe"]:
-        return StorageHandler.StorageHandlerHBA(g_storage_conf)
-        
-    if g_storage_conf["storage_type"] == "nfs":
-        return StorageHandler.StorageHandlerNFS(g_storage_conf)
-
-    if g_storage_conf["storage_type"] == "cifs":
-        return StorageHandler.StorageHandlerCIFS(g_storage_conf)
- 
-    if g_storage_conf["storage_type"] == "isl":
-        return StorageHandler.StorageHandlerISL(g_storage_conf)
-
-    return None
-
 def DisplayCommonOptions():
     Print("usage: XenCert [arguments seen below] \n\
 \n\
@@ -255,7 +237,7 @@ def DisplayStorageSpecificUsage(storage_type):
         Print("")
         DisplayiSLOptions()        
      
-def DisplayUsage(storage_type = None):
+def DisplayUsage(storage_type=None):
     DisplayCommonOptions()
     Print("\nStorage specific options:\n")
     DisplayStorageSpecificUsage(storage_type)
@@ -277,10 +259,15 @@ def printCommand(argvs):
                 temp_argvs[option_index+1] = ':'.join(getCmdsWithHiddenPassword(temp_argvs[option_index + 1].split(':'), 2))
             else:
                 temp_argvs[option_index+1] = HIDDEN_PASSWORD
-
     for argv in temp_argvs:
         PrintToLog(argv)
         PrintToLog(' ')
+
+def displayOperationStatus(passOrFail, customValue=''):
+    if passOrFail:
+        Print("                                                                                                   PASS [Completed%s]" % customValue)
+    else:
+        Print("                                                                                                   FAIL [%s]" % time.asctime(time.localtime()))
 
 def getCmdsWithHiddenPassword(cmd, password_index=-3):
     cmd_with_hidden_password = cmd[:]
@@ -296,3 +283,7 @@ def getConfigWithHiddenPassword(config, storage_type):
     else:
         pass
     return config_with_hidden_password
+
+def showReport(msg, result, checkPoints=1, totalCheckPoints=1, time=0):
+    Print("%-50s: %s, Pass percentage: %d, Completed: %s" %
+          (msg, TAG_PASS if result else TAG_FAIL, int((checkPoints * 100) / totalCheckPoints), time))
