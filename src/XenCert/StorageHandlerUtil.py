@@ -18,6 +18,7 @@ import os
 import re
 import time
 import glob
+import random
 import xml.dom.minidom
 from XenCertLog import Print, PrintOnSameLine, XenCertPrint
 from XenCertCommon import displayOperationStatus, getConfigWithHiddenPassword
@@ -51,6 +52,8 @@ BUF_PATTERN_REV = CHAR_SEQ_REV + CHAR_SEQ_REV
 BUF_ZEROS = "\0" * 512
 
 DISKDATATEST = '/opt/xensource/debug/XenCert/diskdatatest'
+DDT_SECTOR_SIZE = 512           # one sector size: 512 bytes
+DDT_DEFAULT_BLOCK_SIZE = 512    # one block size: 512 sectors, 256KB
 
 multiPathDefaultsMap = { 'udev_dir':'/dev',
 			    'polling_interval':'5',
@@ -792,20 +795,47 @@ def _get_localhost_uuid():
         domid = line.split("'")[1]
     return domid
 
-def FindDiskDataTestEstimate(device, size):
-    estimatedTime = 0
-    # Run diskdatatest in a report mode
-    XenCertPrint("Run diskdatatest in a report mode with device %s to find the estimated time." % device)
-    cmd = [DISKDATATEST, 'report', '1', device]
+def DiskDataTest(device, test_blocks, sect_of_block=DDT_DEFAULT_BLOCK_SIZE, test_time=0):
+    iter_start = str(random.randint(0, 100000))
+    
+    cmd = [DISKDATATEST, 'write', device, str(sect_of_block), str(test_blocks), str(test_time), iter_start]
     XenCertPrint("The command to be fired is: %s" % cmd)
     (rc, stdout, stderr) = util.doexec(cmd)
-    if rc == 0:
-        lastString = (stdout.split('\n')[-1])
-        XenCertPrint("diskdatatest returned : %s" % lastString)
-        estimatedTime = int(lastString.split(' ')[-1])
-    else:
-        XenCertPrint("Diskdatatest return Error : %s" % stderr)
-        estimateTime = 0
+    if rc != 0:
+        raise Exception("Disk test write error!")
+
+    XenCertPrint("diskdatatest returned : %s" % stdout)
+    lastString = stdout.strip().splitlines()[-1]
+    total_blocks, write_blocks, write_elapsed, _ = lastString.split()
+    total_blocks, write_blocks, write_elapsed = int(total_blocks), int(write_blocks), float(write_elapsed)
+
+    cmd = [DISKDATATEST, 'verify', device, str(sect_of_block), str(write_blocks), str(test_time), iter_start]
+    XenCertPrint("The command to be fired is: %s" % cmd)
+    (rc, stdout, stderr) = util.doexec(cmd)
+    if rc != 0:
+        raise Exception("Disk test verify error!")
+
+    XenCertPrint("diskdatatest returned : %s" % stdout)
+    lastString = stdout.strip().splitlines()[-1]
+    _, verify_blocks, verify_elapsed, sector_errors = lastString.split()
+    verify_blocks, verify_elapsed, sector_errors = int(verify_blocks), float(verify_elapsed), int(sector_errors)
+
+    if sector_errors != 0:
+        raise Exception("Disk test verify error on %d sectors!", sector_errors)
+        
+    return total_blocks, write_blocks, write_elapsed, verify_blocks, verify_elapsed
+    
+def GetBlocksNum(size, sect_of_block=DDT_DEFAULT_BLOCK_SIZE):
+    return size*MiB/(sect_of_block*DDT_SECTOR_SIZE)
+    
+def FindDiskDataTestEstimate(device, size):
+    # Run diskdatatest in a report mode
+    XenCertPrint("Run diskdatatest in a report mode with device %s to find the estimated time." % device)
+
+    total_blocks, write_blocks, write_elapsed, verify_blocks, verify_elapsed = \
+            DiskDataTest(device, GetBlocksNum(size), test_time=15)
+
+    estimatedTime = total_blocks * (write_elapsed/write_blocks + verify_elapsed/verify_blocks)
  
     XenCertPrint("Total estimated time for testing IO with the device %s as %d" % (device, estimatedTime))
     return estimatedTime
