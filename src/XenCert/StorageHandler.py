@@ -2329,9 +2329,9 @@ class StorageHandlerISCSI(BlockStorageHandler):
                         Print("     %-23s\t%-4s\t%-34s\t%-10s" % (portal, key, lunToScsi[key][0], size))
                         timeForIOTestsInSec += StorageHandlerUtil.FindDiskDataTestEstimate(lunToScsi[key][1], size)
                         if scsiToTupleMap.has_key(lunToScsi[key][0]):
-                            scsiToTupleMap[lunToScsi[key][0]].append(( portal, iqn, lunToScsi[key][1]))
+                            scsiToTupleMap[lunToScsi[key][0]].append(( portal, iqn, lunToScsi[key][1], size))
                         else:
-                            scsiToTupleMap[lunToScsi[key][0]] = [( portal, iqn, lunToScsi[key][1])]
+                            scsiToTupleMap[lunToScsi[key][0]] = [( portal, iqn, lunToScsi[key][1], size)]
                         
                         totalSizeInMiB += size                                                   
                 except Exception, e:
@@ -2400,15 +2400,10 @@ class StorageHandlerISCSI(BlockStorageHandler):
                             XenCertPrint("First write a small chunk on the device %s to make sure it works." % tuple[2])
                             cmd = ['dd', 'if=/dev/zero', 'of=%s' % tuple[2], 'bs=1M', 'count=1', 'conv=nocreat', 'oflag=direct']
                             util.pread(cmd)
-                                                        
-                            cmd = [StorageHandlerUtil.DISKDATATEST, 'write', '1', tuple[2]]
-                            XenCertPrint("The command to be fired is: %s" % cmd)
-                            util.pread(cmd)
                             
-                            cmd = [StorageHandlerUtil.DISKDATATEST, 'verify', '1', tuple[2]]
-                            XenCertPrint("The command to be fired is: %s" % cmd)
-                            util.pread(cmd)
-                            
+                            XenCertPrint("lun size: %d MB" % tuple[3])
+                            StorageHandlerUtil.DiskDataTest(tuple[2], StorageHandlerUtil.GetBlocksNum(tuple[3]))
+
                             XenCertPrint("Device %s passed the disk IO test. " % tuple[2])
                             pathPassed += 1
                             Print("")
@@ -2685,11 +2680,11 @@ class StorageHandlerHBA(BlockStorageHandler):
                         Print("     %-4s\t%-34s\t%-20s\t%-10s" % (lun['id'], lun['SCSIid'], lun['device'], size))
                         timeForIOTestsInSec = StorageHandlerUtil.FindDiskDataTestEstimate( lun['device'], size)
                         if scsiToTupleMap.has_key(lun['SCSIid']):
-                            scsiToTupleMap[lun['SCSIid']].append(lun['device'])
+                            scsiToTupleMap[lun['SCSIid']].append((lun['device'], size))
                             scsiInfo[lun['SCSIid']][0] += size
                             scsiInfo[lun['SCSIid']][1] += timeForIOTestsInSec
                         else:
-                            scsiToTupleMap[lun['SCSIid']] = [lun['device']]
+                            scsiToTupleMap[lun['SCSIid']] = [(lun['device'], size)]
                             scsiInfo[lun['SCSIid']] = [size,timeForIOTestsInSec]
         
 
@@ -2749,7 +2744,7 @@ class StorageHandlerHBA(BlockStorageHandler):
 
                     pathNo = 0
                     pathPassed = 0
-                    for device in scsiIdsToTest[key]:
+                    for device,size in scsiIdsToTest[key]:
                         # If this is a root device then skip IO tests for this device.
                         if os.path.realpath(util.getrootdev()) == device:
                             Print("     -> Skipping IO tests on device %s, as it is the root device." % device)
@@ -2765,14 +2760,9 @@ class StorageHandlerHBA(BlockStorageHandler):
                             XenCertPrint("First write a small chunk on the device %s to make sure it works." % device)
                             cmd = ['dd', 'if=/dev/zero', 'of=%s' % device, 'bs=1M', 'count=1', 'conv=nocreat', 'oflag=direct']
                             util.pread(cmd)
-
-                            cmd = [StorageHandlerUtil.DISKDATATEST, 'write', '1', device]
-                            XenCertPrint("The command to be fired is: %s" % cmd)
-                            util.pread(cmd)
                             
-                            cmd = [StorageHandlerUtil.DISKDATATEST, 'verify', '1', device]
-                            XenCertPrint("The command to be fired is: %s" % cmd)
-                            util.pread(cmd)
+                            XenCertPrint("lun size: %d MB" % size)
+                            StorageHandlerUtil.DiskDataTest(device, StorageHandlerUtil.GetBlocksNum(size))
                             
                             XenCertPrint("Device %s passed the disk IO test. " % device)
                             pathPassed += 1
