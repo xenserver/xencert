@@ -2563,6 +2563,7 @@ class StorageHandlerHBA(BlockStorageHandler):
         timeForIOTestsInSec = 0
         totalTimeForIOTestsInSec = 0
         totalSizeInMiB = 0
+        scsiIdList = self.storage_conf['scsiIDs'].split(",")
 
         try:
             # 1. Report the FC Host Adapters detected and the status of each physical port
@@ -2678,7 +2679,11 @@ class StorageHandlerHBA(BlockStorageHandler):
                         sectors = util.get_single_entry(filelist[0])
                         size = int(sectors) * 512 / 1024 / 1024
                         Print("     %-4s\t%-34s\t%-20s\t%-10s" % (lun['id'], lun['SCSIid'], lun['device'], size))
-                        timeForIOTestsInSec = StorageHandlerUtil.FindDiskDataTestEstimate( lun['device'], size)
+
+                        timeForIOTestsInSec = 0
+                        # Estimate test for only specified lun
+                        if lun['SCSIid'] in scsiIdList:
+                            timeForIOTestsInSec = StorageHandlerUtil.FindDiskDataTestEstimate(lun['device'], size)
                         if scsiToTupleMap.has_key(lun['SCSIid']):
                             scsiToTupleMap[lun['SCSIid']].append((lun['device'], size))
                             scsiInfo[lun['SCSIid']][0] += size
@@ -2701,8 +2706,7 @@ class StorageHandlerHBA(BlockStorageHandler):
             Print("   that they are writeable and there is no apparent disk corruption.")
             Print("   the tests attempt to write to the LUN over each available path and")
             Print("   reports the number of writable paths to each LUN.")
-            
-            scsiIdList = self.storage_conf['scsiIDs'].split(",")
+
             scsiIdsToTest = {}
 
             # Create a pruned list which conatins only those SCSIids to be tested
