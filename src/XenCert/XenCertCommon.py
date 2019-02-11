@@ -78,7 +78,7 @@ def parse_args(version_string):
     """Parses the command line arguments"""
     
     opt = OptionParser("usage: %prog [arguments seen below]",
-            version=version_string,
+            version="%prog " + version_string,
            add_help_option=False)
     
     for element in __nfs_args__:
