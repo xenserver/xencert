@@ -919,7 +919,7 @@ class StorageHandler(object):
                                                         vdi_uuid3])
                 displayOperationStatus(True)
 
-                Print(">>> 2. Metadata volume not present - upgrade from a XenServer version which does not have SR metadata volume")
+                Print(">>> 2. Metadata volume not present - upgrade from a Citrix Hypervisor version which does not have SR metadata volume")
 
                 # detach the SR
                 Print(">>>>     Detach the SR")
@@ -1850,7 +1850,7 @@ class BlockStorageHandler(StorageHandler):
             return False
 
         if pool['restrictions']['restrict_corosync'] == "true":
-            raise Exception("You are required to run these tests on a licensed host, with either XenServer Enterprise "
+            raise Exception("You are required to run these tests on a licensed host, with either Citrix Hypervisor Enterprise "
                             "or Citrix Virtual Apps or Desktop entitlement. This is so that the GFS2 SR can "
                             "be tested. If you are a Citrix Partner then demo licenses can be acquired through "
                             "the Citrix Ready programme. See https://www.citrix.co.uk/partner-programs/citrix-ready/ "
