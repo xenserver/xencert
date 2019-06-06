@@ -1868,7 +1868,7 @@ class BlockStorageHandler(StorageHandler):
             management_network = self.session.xenapi.PIF.get_record(
                 management_pifs[0])['network']
             self.cluster = self.session.xenapi.Cluster.pool_create(
-                management_network, 'corosync', 1.0, 0.65)
+                management_network, 'corosync')
             self.enabled_clustering = True
 
         return True
