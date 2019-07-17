@@ -763,7 +763,6 @@ class StorageHandler(object):
         except Exception, e:
             XenCertPrint("Failed to Destroy VDI. Exception: %s" % str(e))
             raise Exception("Failed to Destroy VDI. Exception: %s" % str(e))
-            return False
         
     #
     #  SR related
@@ -847,7 +846,6 @@ class StorageHandler(object):
         except Exception, e:
             XenCertPrint("Failed to Destroy SR. Exception: %s" % str(e))
             raise Exception("Failed to Destroy SR. Exception: %s" % str(e))
-            return False
         
     def MetaDataTests(self):
         Print("MetaDataTests not applicable to %s SR type." % self.storage_conf['storage_type'].upper())
