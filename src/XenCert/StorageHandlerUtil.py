@@ -617,7 +617,6 @@ def PerformSRControlPathTests(session, sr_ref):
 	bytes = 0
 	if not util.zeroOut(devicename, 1, int(vdi_size)):	    
 	    raise Exception("   - Could not write through the allocated disk space on test disk, please check the log for the exception details.")
-	    displayOperationStatus(False)
 	    
 	Print("   END TIME: %s " % (time.asctime(time.localtime())))
 	displayOperationStatus(True)
