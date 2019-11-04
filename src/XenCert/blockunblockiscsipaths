@@ -17,9 +17,8 @@
 #
 import sys
 sys.path.insert(0, "/opt/xensource/sm")
-sys.path.insert(0, "/opt/xensource/sm/snapwatchd")
 import util
-import xslib
+import xen.lowlevel.xs
 import random
 
 def help():
@@ -70,9 +69,10 @@ for ip in newList:
 
 paths = paths.strip(',')
 
-xs_handle = xslib.get_xs_handle()
-xslib.setval(xs_handle, '/xencert/block-unblock-over', '1')
+xs_handle = xen.lowlevel.xs.xs()
+xs_handle.write('', '/xencert/block-unblock-over', '1')
 del xs_handle
+
 if op == 'block':
     sys.stdout.write(paths)
 sys.exit(0)
