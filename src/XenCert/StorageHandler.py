@@ -3155,7 +3155,7 @@ class StorageHandlerCIFS(StorageHandler):
                     StorageHandlerUtil.DestroySR(self.session, sr_ref)
                 checkPoints += 1
             except Exception, e:
-                Print("   - Failed to cleanup after CIFS functional tests, please delete the following manually: %s, %s, %s. Exception: %s" % (testfile, testdir, mountpoint, str(e)))
+                Print("   - Failed to cleanup after CIFS functional tests, please delete the following manually: %s, %s, %s(sr). Exception: %s" % (testfile, testdir, self.session.xenapi.SR.get_uuid(sr_ref), str(e)))
 
         return (retVal, checkPoints, totalCheckPoints)
 
@@ -3464,5 +3464,6 @@ def GetStorageHandler(g_storage_conf):
         return StorageHandlerCIFS(g_storage_conf)
 
     if g_storage_conf["storage_type"] == "isl":
-        return StorageHandlerISL(g_storage_conf)
+        #return StorageHandlerISL(g_storage_conf)
+        pass
     return None
