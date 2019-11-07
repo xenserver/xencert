@@ -24,9 +24,8 @@
 
 import sys
 sys.path.insert(0, "/opt/xensource/sm")
-sys.path.insert(0, "/opt/xensource/sm/snapwatchd")
 import util
-import xslib
+import xen.lowlevel.xs
 import os
 import time
 from XenCertLog import Print, XenCertPrint
@@ -42,9 +41,9 @@ if len(sys.argv) != 5 and len(sys.argv) != 1 :
     help()
 
 retVal = ''
-xs_handle = xslib.get_xs_handle()
-xslib.setval(xs_handle, '/xencert/block-unblock-over', '0')
-block_unblock_over = xslib.getval(xs_handle, '/xencert/block-unblock-over')
+xs_handle = xen.lowlevel.xs.xs()
+xs_handle.write('', '/xencert/block-unblock-over', '0')
+block_unblock_over = xs_handle.read('', '/xencert/block-unblock-over')
 if len(sys.argv) == 5:
     cmd = [sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]]
     XenCertPrint('blockunblockpaths - now call %s and wait for block/unblock to finish.' % cmd)
@@ -58,7 +57,7 @@ elif len(sys.argv) == 1:
     
 while block_unblock_over != '1':
     time.sleep(1)
-    block_unblock_over = xslib.getval(xs_handle, '/xencert/block-unblock-over')
+    block_unblock_over = xs_handle.read('', '/xencert/block-unblock-over')
     
 os.system('xenstore-rm /xencert')
 del xs_handle

@@ -122,6 +122,8 @@ zope=no
 # so shouldn't trigger E0201 when accessed (need zope=yes to be considered).
 acquired-members=REQUEST,acl_users,aq_parent
 
+ignored-modules=scsiutil,iscsilib,util,BaseISCSI,nfs,lvhdutil,lvutil,srmetadata,metadata,vhdutil,mpath_cli,mpath_dmp,xs_errors
+
 
 # checks for
 # * unused variables / imports
