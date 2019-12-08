@@ -661,59 +661,90 @@ def get_lun_scsiid_devicename_mapping(targetIQN, portal):
         XenCertPrint("Failed to find any LUNs for IQN: %s and portal: %s" % (targetIQN, portal))
         return {}
 
+def parse_multipathd_config(lines):
+    """
+    Convert multipathd config to dict
+    :param lines: output lines of "/usr/sbin/multipathd show config", 
+        for structure refer to https://linux.die.net/man/5/multipath.conf
+    :return: a dict like:
+        section: [
+            (attribute, value),
+            ...
+            (subsection, [
+                (attribute, value),
+                ...
+            ]),
+            ...
+        ],
+        ...
+    """
+    dict = {}
+    re_section_begin = re.compile(r'^([^\t ]+) {\n$')
+    re_section_end = re.compile(r'^}\n$')
+    re_section_attr = re.compile(r'^\t([^\t ]+) (.*[^{])\n$')
+    re_subsection_begin = re.compile(r'^\t([^\t ]+) {\n$')
+    re_subsection_end = re.compile(r'^\t}\n$')
+    re_subsection_attr = re.compile(r'^\t\t([^\t ]+) (.*[^{])\n$')
+    
+    for line in lines:
+        m = re_section_begin.match(line)
+        if m:
+            section = m.group(1)
+            section_value = []
+            continue
+        m = re_section_attr.match(line)
+        if m:
+            attribute,value = m.group(1),m.group(2)
+            section_value.append((attribute,value))
+            continue
+        m = re_subsection_begin.match(line)
+        if m:
+            subsection = m.group(1)
+            subsection_value = []
+            continue
+        m = re_subsection_attr.match(line)
+        if m:
+            attribute,value = m.group(1),m.group(2)
+            subsection_value.append((attribute,value))
+            continue
+        m = re_subsection_end.match(line)
+        if m:
+            section_value.append((subsection,subsection_value))
+            continue
+        m = re_section_end.match(line)
+        if m:
+            dict[section] = section_value
+            continue
+       # ignore any other line
+       
+    return dict
+
 def parse_config(vendor, product):
+    device_config = None
     try:
-	retVal = True
-    	cmd="show config"		
-	XenCertPrint("mpath cmd: %s" % cmd)
+        cmd="show config"
+        XenCertPrint("mpath cmd: %s" % cmd)
         (rc,stdout,stderr) = util.doexec(mpath_cli.mpathcmd,cmd)
         XenCertPrint("mpath output: %s" % stdout)
-        stdout = stdout.rstrip('}\nmultipaths {\n}\nmultipathd> ') + '\t'
-        XenCertPrint("mpath output after stripping: %s" % stdout)
-        list = stdout.split("device {")
-        skipThis = True
-        for para in list:
-            returnmap = {}
-            XenCertPrint("The para is: %s" % para)
-            if not skipThis:
-	        para = para.lstrip()
-                para = para.rstrip('\n\t}\n\t')
-                listParams = para.split('\n\t\t')
-                XenCertPrint("ListParams: %s" % listParams)
-                for paramPair in listParams:
-		    key = ''
-		    value = ''
-		    params = paramPair.split(' ')
-		    firstParam = True
-		    for param in params:
-			if firstParam:
-			    key = param
-			    firstParam = False
-			    continue
-			else:
-			    value += param
-			    value += ' '
-		    value = value.strip()	    
-		    returnmap[key] = value
-                returnmap['vendor'] = returnmap['vendor'].replace('"', '')
-                returnmap['product'] = returnmap['product'].replace('"', '')
-                productSearch = '^' + returnmap['product'] + '$'
-                vendorSearch = '^' + returnmap['vendor'] + '$'
-                regexvendor = re.compile(vendorSearch)
-                regexproduct = re.compile(productSearch)
-                if ((regexproduct.search(product)) and (regexvendor.search(vendor))):
-                    break
-            else:
-                skipThis = False
+        d = parse_multipathd_config([line+'\n' for line in stdout.split('\n')])
+        XenCertPrint("mpath config to dict: %s" % d)
+
+        for _,device_value in d["devices"]:
+            XenCertPrint("device attributes: %s" % device_value)
+            attr_map = dict(device_value)
+            if 'vendor' not in attr_map or 'product' not in attr_map:
+                XenCertPrint("warning: skip the device attributes because can not find mandatory key vendor or product")
+                continue
+            re_vendor = re.compile(attr_map['vendor'].strip('"'))
+            re_product = re.compile(attr_map['product'].strip('"'))
+            if (re_vendor.search(vendor) and re_product.search(product)):
+                XenCertPrint("matched vendor and product")
+                device_config = dict(multiPathDefaultsMap.items() + attr_map.items())
+                break
     except Exception, e:
         XenCertPrint("Failed to get multipath config for vendor: %s and product: %s. Exception: %s" % (vendor, product, str(e)))
-        retVal = False
-    # This is not listed in the config, return defaults.
-    for key in multiPathDefaultsMap.keys():
-	if not returnmap.has_key(key):
-	    returnmap[key] = multiPathDefaultsMap[key]
-	    
-    return (retVal, returnmap )
+
+    return (device_config != None, device_config)
 
 def parse_xml_config(file):
     configuration = {}
