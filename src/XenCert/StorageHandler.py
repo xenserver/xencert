@@ -2165,8 +2165,8 @@ class StorageHandlerISCSI(BlockStorageHandler):
     def GetPathStatus(self, device_config):
         # Query DM-multipath status, reporting a) Path checker b) Path Priority handler c) Number of paths d) distribution of active vs passive paths
         try:
-            self.mapIPToHost = StorageHandlerUtil._init_adapters()      
-            XenCertPrint("The IP to host id map is: %s" % self.mapIPToHost) 
+            self.mapHostToIP = StorageHandlerUtil._init_adapters()      
+            XenCertPrint("The IP to host id map is: %s" % self.mapHostToIP) 
             
             (retVal, configMap) = StorageHandlerUtil.GetConfig(device_config['SCSIid'])
             if not retVal:                
@@ -2202,7 +2202,7 @@ class StorageHandlerISCSI(BlockStorageHandler):
     def DisplayPathStatus(self):
         Print("       %-15s %-15s %-25s %-15s" % ('IP address', 'HBTL','Path DM status','Path status')            )
         for item in self.listPathConfig:
-            Print("       %-15s %-15s %-25s %-15s" % (StorageHandlerUtil.findIPAddress(self.mapIPToHost, item[0]), item[0], item[1], item[2]))
+            Print("       %-15s %-15s %-25s %-15s" % (StorageHandlerUtil.findIPAddress(self.mapHostToIP, item[0]), item[0], item[1], item[2]))
             
     def RandomlyFailPaths(self):
         try:
@@ -2210,7 +2210,7 @@ class StorageHandlerISCSI(BlockStorageHandler):
             self.blockedpathinfo = ''
             self.paths = ''
             for item in self.listPathConfig: 
-                ip = StorageHandlerUtil.findIPAddress(self.mapIPToHost, item[0])
+                ip = StorageHandlerUtil.findIPAddress(self.mapHostToIP, item[0])
                 self.paths += ip + ','
                        
             self.paths = self.paths.rstrip(',')

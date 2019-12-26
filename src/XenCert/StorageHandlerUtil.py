@@ -73,29 +73,20 @@ multiPathDefaultsMap = { 'udev_dir':'/dev',
 def _init_adapters():
     # Generate a list of active adapters
     ids = scsiutil._genHostList(ISCSI_PROCNAME)
-    util.SMlog(ids)
+    util.SMlog("Host ids: %s" % ids)
     adapter = {}
     for host in ids:
         try:
-            # For Backward compatibility 
-            if hasattr(iscsilib, 'get_targetIQN'):
-                targetIQN = iscsilib.get_targetIQN(host)
-            else: 
-                targetIQN = util.get_single_entry(glob.glob(\
-                   '/sys/class/iscsi_host/host%s/device/session*/iscsi_session*/targetname' % host)[0])
-
             if hasattr(iscsilib, 'get_targetIP_and_port'):
                 (addr, port) = iscsilib.get_targetIP_and_port(host)
             else:
-                addr = util.get_single_entry(glob.glob(\
-                   '/sys/class/iscsi_host/host%s/device/session*/connection*/iscsi_connection*/persistent_address' % host)[0])
-                port = util.get_single_entry(glob.glob(\
-                   '/sys/class/iscsi_host/host%s/device/session*/connection*/iscsi_connection*/persistent_port' % host)[0])
-
-            entry = "%s:%s" % (addr,port)
-            adapter[entry] = host
+                addr = util.get_single_entry(glob.glob(
+                    '/sys/class/iscsi_host/host%s/device/session*/connection*/iscsi_connection*/persistent_address' % host)[0])
+                port = util.get_single_entry(glob.glob(
+                    '/sys/class/iscsi_host/host%s/device/session*/connection*/iscsi_connection*/persistent_port' % host)[0])
+            adapter[host] = (addr, port)
         except Exception, e:
-            pass
+            XenCertPrint("Ignore host %d IP because of exception %s" % (host, str(e)))
     return adapter
 
 def IsMPEnabled(session, host_ref):
@@ -172,16 +163,14 @@ def GetConfig(scsiid):
 
     return (retVal, configMap)
 
-def findIPAddress(mapIPToHost, HBTL):
+def findIPAddress(mapHostToIP, HBTL):
     try:
-	ip = ''
-	for key in mapIPToHost.keys():
-	    if mapIPToHost[key] == HBTL.split(':')[0]:
-		ip = key.split(':')[0]
-		break
+        host = HBTL.split(':')[0]
+        if host in mapHostToIP and mapHostToIP[host][0]:
+            return mapHostToIP[host][0]
     except Exception, e:
-	XenCertPrint("There was an exception in finding IP address for the HBTL: %s. Exception: %s" % (HBTL, str(e)))
-    return ip
+        XenCertPrint("Failed to find IP address for HBTL: %s, mapHostToIP: %s, exception: %s" % (HBTL, mapHostToIP, str(e)))
+        raise Exception("No IP for HBTL %s in %s" % (HBTL, mapHostToIP))
 
 # The returned structure are a list of portals, and a list of SCSIIds for the specified IQN. 
 def GetListPortalScsiIdForIqn(session, server, targetIqn, chapUser = None, chapPassword = None):
