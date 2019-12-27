@@ -2166,7 +2166,7 @@ class StorageHandlerISCSI(BlockStorageHandler):
         # Query DM-multipath status, reporting a) Path checker b) Path Priority handler c) Number of paths d) distribution of active vs passive paths
         try:
             self.mapHostToIP = StorageHandlerUtil._init_adapters()      
-            XenCertPrint("The IP to host id map is: %s" % self.mapHostToIP) 
+            XenCertPrint("The host id to IP map is: %s" % self.mapHostToIP) 
             
             (retVal, configMap) = StorageHandlerUtil.GetConfig(device_config['SCSIid'])
             if not retVal:                
