@@ -21,6 +21,7 @@ import os
 import commands
 import glob
 import random
+import operator
 from xml.dom import minidom
 import StorageHandlerUtil
 from XenCertLog import Print, PrintOnSameLine, XenCertPrint
@@ -88,11 +89,12 @@ class TimedDeviceIO(Thread):
                 XenCertPrint("Could not write through the allocated disk space on test disk, please check the storage configuration manually. Exception: %s" % str(e))
 
 class WaitForFailover(Thread):
-    def __init__(self, session, scsiid, activePaths, noOfPaths):
+    def __init__(self, session, scsiid, activePaths, noOfPaths, checkFunc):
         Thread.__init__(self)        
         self.scsiid = scsiid
         self.activePaths = activePaths
         self.noOfPaths = noOfPaths
+        self.checkFunc = checkFunc
 
     def run(self):
         # Here wait for the expected number of paths to fail.        
@@ -104,7 +106,8 @@ class WaitForFailover(Thread):
         while not pathsFailed and failoverTime < 50:
             try:
                 (retVal, listPathConfigNew) = StorageHandlerUtil.get_path_status(self.scsiid, True)
-                if self.noOfPaths == ((int)(self.activePaths) - len(listPathConfigNew)):
+                currNoOfPaths = (int)(self.activePaths) - len(listPathConfigNew)
+                if self.checkFunc(currNoOfPaths, self.noOfPaths):
                     pathsFailed = True
                 time.sleep(1)
                 failoverTime += 1                
@@ -245,8 +248,9 @@ class StorageHandler(object):
                 
             if not os.path.exists(self.storage_conf['pathHandlerUtil']):                 
                 raise Exception("Path handler util specified for multipathing tests does not exist!")
-            
-            if self.storage_conf['storage_type'] == 'hba' and self.storage_conf['pathInfo'] is None:
+
+            isManBlock = os.path.basename(self.storage_conf['pathHandlerUtil']) == "blockunblockpaths"
+            if self.storage_conf['storage_type'] == 'hba' and self.storage_conf['pathInfo'] is None and not isManBlock:
                 raise Exception("Path related information not specified for storage type hba.")
             
             if self.storage_conf['count'] is not None:
@@ -306,7 +310,7 @@ class StorageHandler(object):
             global speedOfCopy
             Print("")
             Print("Iteration 1:\n")
-            Print(" -> No manual blocking of paths.")
+            Print(" -> No manual/script blocking of paths.")
             s = TimedDeviceIO(self.session.xenapi.VBD.get_device(vbd_ref))
             s.start()
             s.join()
@@ -325,29 +329,37 @@ class StorageHandler(object):
                 displayOperationStatus(True)
                 checkPoint += 1
 
-            if len(self.listPathConfig) > 1:                
+            if len(self.listPathConfig) > 1:
                 for i in range(2, iterationCount):
                     maxTimeTaken = 0
                     throughputForMaxTime = ''
                     totalCheckPoints += 2
-                    Print("Iteration %d:\n" % i)                                    
-                    if not self.RandomlyFailPaths():                                            
-                        raise Exception("Failed to block paths.")
-                    
-                    XenCertPrint("Dev Path Config = '%s', no of Blocked switch Paths = '%s'" % (self.listPathConfig, self.noOfPaths))
+                    Print("Iteration %d:\n" % i)
 
-                    # Fail path calculation needs to be done only in case of hba SRs
-                    if "blockunblockhbapaths" in \
-                            self.storage_conf['pathHandlerUtil'].split('/')[-1]:
-                        #Calculate the number of devices to be found after the path block
-                        devicesToFail = (len(self.listPathConfig)/self.noOfTotalPaths) * self.noOfPaths
-                        XenCertPrint("Expected devices to fail: %s" % devicesToFail)
+                    if isManBlock:
+                        Print(" -> Wait for manually blocking paths")
+                        self.WaitManualBlockUnblockPaths()
+                        devicesToFail = 1
+                        checkFunc = operator.ge
                     else:
-                        devicesToFail = self.noOfPaths
+                        if not self.RandomlyFailPaths():
+                            raise Exception("Failed to block paths.")
 
-                    s = WaitForFailover(self.session, device_config['SCSIid'], len(self.listPathConfig), devicesToFail)
+                        XenCertPrint("Dev Path Config = '%s', no of Blocked switch Paths = '%s'" % (self.listPathConfig, self.noOfPaths))
+
+                        # Fail path calculation needs to be done only in case of hba SRs
+                        if "blockunblockhbapaths" in \
+                                self.storage_conf['pathHandlerUtil'].split('/')[-1]:
+                            #Calculate the number of devices to be found after the path block
+                            devicesToFail = (len(self.listPathConfig)/self.noOfTotalPaths) * self.noOfPaths
+                            XenCertPrint("Expected devices to fail: %s" % devicesToFail)
+                        else:
+                            devicesToFail = self.noOfPaths
+                        checkFunc = operator.eq
+
+                    s = WaitForFailover(self.session, device_config['SCSIid'], len(self.listPathConfig), devicesToFail, checkFunc)
                     s.start()
-                    
+
                     while s.isAlive():
                         timeTaken = 0
                         s1 = TimedDeviceIO(self.session.xenapi.VBD.get_device(vbd_ref))                    
@@ -363,7 +375,7 @@ class StorageHandler(object):
                         if timeTaken > maxTimeTaken:
                             maxTimeTaken = timeTaken
                             throughputForMaxTime = speedOfCopy
-                    
+
                     if pathsFailed:
                         Print("    - Paths failover time: %s seconds" % failoverTime)
                         Print("    - Maximum IO completion time: %s. Data: %s. Throughput: %s" % (maxTimeTaken, '1MB', throughputForMaxTime))
@@ -371,11 +383,17 @@ class StorageHandler(object):
                         checkPoint += 1
                     else:
                         displayOperationStatus(False)
-                        self.BlockUnblockPaths(False, self.storage_conf['pathHandlerUtil'], self.noOfPaths, self.blockedpathinfo)
+                        if not isManBlock:
+                            self.BlockUnblockPaths(False, self.storage_conf['pathHandlerUtil'], self.noOfPaths, self.blockedpathinfo)
                         raise Exception("    - Paths did not failover within expected time.")
-                    
-                    self.BlockUnblockPaths(False, self.storage_conf['pathHandlerUtil'], self.noOfPaths, self.blockedpathinfo)
-                    Print(" -> Unblocking paths, waiting for restoration.")
+
+                    if isManBlock:
+                        Print(" -> Wait for manually unblocking paths and restoration")
+                        self.WaitManualBlockUnblockPaths()
+                    else:
+                        self.BlockUnblockPaths(False, self.storage_conf['pathHandlerUtil'], self.noOfPaths, self.blockedpathinfo)
+                        Print(" -> Unblocking paths, waiting for restoration.")
+
                     count = 0
                     pathsMatch = False
                     while not pathsMatch and count < 120:
@@ -652,7 +670,19 @@ class StorageHandler(object):
                 raise Exception("   - The path block/unblock utility returned an error: %s." % stderr)
             return stdout
         except Exception, e:            
-            raise e        
+            raise e
+
+    def WaitManualBlockUnblockPaths(self):
+        try:
+            cmd = [self.storage_conf['pathHandlerUtil']]
+            (rc, stdout, stderr) = util.doexec(cmd, '')
+            XenCertPrint(
+                "The path manually block/unblock utility returned rc: %s stdout: '%s', stderr: '%s'" % (rc, stdout, stderr))
+            if rc != 0:
+                raise Exception("   - The path manually block/unblock utility returned an error: %s." % stderr)
+            return stdout
+        except Exception, e:
+            raise e
     
     def __del__(self):
         XenCertPrint("Reached Storagehandler destructor")

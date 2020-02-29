@@ -42,7 +42,7 @@ def blockUnblockPort(blockOrUnblock, ip, username, password, port):
         XenCertPrint("calling %s" % ' '.join(XenCertCommon.getCmdsWithHiddenPassword(cmd)))
         util.doexec(cmd, '')
     except Exception, e:
-        util.SMlog("There was an exception in blocking port: %s" % port)
+        util.SMlog("There was an exception in blocking port: %s, exception: %s" % (port, str(e)))
 
 # Test Cmdline args
 if len(sys.argv) != 4:
