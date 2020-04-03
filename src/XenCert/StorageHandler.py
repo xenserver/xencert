@@ -25,7 +25,7 @@ import operator
 from xml.dom import minidom
 import StorageHandlerUtil
 from XenCertLog import Print, PrintOnSameLine, XenCertPrint
-from XenCertCommon import displayOperationStatus, getConfigWithHiddenPassword
+from XenCertCommon import displayOperationStatus, getConfigWithHiddenPassword, hidePathInfoPassword
 import scsiutil
 import iscsilib
 import util
@@ -665,7 +665,8 @@ class StorageHandler(object):
             
             (rc, stdout, stderr) = util.doexec(cmd,'')
 
-            XenCertPrint("The path block/unblock utility returned rc: %s stdout: '%s', stderr: '%s'" % (rc, stdout, stderr))
+            stdoutPrint = hidePathInfoPassword(stdout) if self.storage_conf['storage_type'] == 'hba' else stdout
+            XenCertPrint("The path block/unblock utility returned rc: %s stdout: '%s', stderr: '%s'" % (rc, stdoutPrint, stderr))
             if rc != 0:
                 raise Exception("   - The path block/unblock utility returned an error: %s." % stderr)
             return stdout
@@ -2579,7 +2580,7 @@ class StorageHandlerHBA(BlockStorageHandler):
             XenCertPrint("No of paths which should fail is %s out of total %s" % \
                                             (self.noOfPaths, self.noOfTotalPaths))
             self.blockedpathinfo = scriptReturn.split('::')[0]
-            PrintOnSameLine(" -> Blocking paths (%s)\n" % self.blockedpathinfo)
+            PrintOnSameLine(" -> Blocking paths (%s)\n" % hidePathInfoPassword(self.blockedpathinfo))
             return True
         except Exception, e:            
             raise e
