@@ -284,6 +284,12 @@ def getConfigWithHiddenPassword(config, storage_type):
         pass
     return config_with_hidden_password
 
+def hidePathInfoPassword(pathInfo, delimiter=':', password_index=2):
+    infoList = pathInfo.split(delimiter)
+    if len(infoList) > password_index:
+        infoList[password_index] = HIDDEN_PASSWORD
+    return delimiter.join(infoList)
+
 def showReport(msg, result, checkPoints=1, totalCheckPoints=1, time=0):
     Print("%-50s: %s, Pass percentage: %d, Completed: %s" %
           (msg, TAG_PASS if result else TAG_FAIL, int((checkPoints * 100) / totalCheckPoints), time))

@@ -25,7 +25,7 @@ import operator
 from xml.dom import minidom
 import StorageHandlerUtil
 from XenCertLog import Print, PrintOnSameLine, XenCertPrint
-from XenCertCommon import displayOperationStatus, getConfigWithHiddenPassword
+from XenCertCommon import displayOperationStatus, getConfigWithHiddenPassword, hidePathInfoPassword
 import scsiutil
 import iscsilib
 import util
@@ -665,7 +665,8 @@ class StorageHandler(object):
             
             (rc, stdout, stderr) = util.doexec(cmd,'')
 
-            XenCertPrint("The path block/unblock utility returned rc: %s stdout: '%s', stderr: '%s'" % (rc, stdout, stderr))
+            stdoutPrint = hidePathInfoPassword(stdout) if self.storage_conf['storage_type'] == 'hba' else stdout
+            XenCertPrint("The path block/unblock utility returned rc: %s stdout: '%s', stderr: '%s'" % (rc, stdoutPrint, stderr))
             if rc != 0:
                 raise Exception("   - The path block/unblock utility returned an error: %s." % stderr)
             return stdout
@@ -2579,7 +2580,7 @@ class StorageHandlerHBA(BlockStorageHandler):
             XenCertPrint("No of paths which should fail is %s out of total %s" % \
                                             (self.noOfPaths, self.noOfTotalPaths))
             self.blockedpathinfo = scriptReturn.split('::')[0]
-            PrintOnSameLine(" -> Blocking paths (%s)\n" % self.blockedpathinfo)
+            PrintOnSameLine(" -> Blocking paths (%s)\n" % hidePathInfoPassword(self.blockedpathinfo))
             return True
         except Exception, e:            
             raise e
@@ -3395,6 +3396,9 @@ class StorageHandlerGFS2(StorageHandler):
         if self.device_config['provider'] == 'iscsi':
             self.device_config['target'] = storage_conf['target']
             self.device_config['targetIQN'] = storage_conf['targetIQN']
+            if storage_conf['chapuser'] is not None and storage_conf['chappasswd'] is not None:
+                self.device_config['chapuser'] = storage_conf['chapuser']
+                self.device_config['chappassword'] = storage_conf['chappasswd']
 
         super(StorageHandlerGFS2, self).__init__(storage_conf)
 
@@ -3413,15 +3417,19 @@ class StorageHandlerGFS2(StorageHandler):
 
             device_config = copy.deepcopy(self.device_config)
 
+            if 'targetIQN' in device_config and len(device_config['targetIQN'].split(',')) > 1:
+                device_config['targetIQN'] = '*'
+
             Print("      Creating the SR.")
             # try to create an SR with one of the LUNs mapped, if all fails
             # throw an exception
             for scsiId in listSCSIId:
                 try:
                     device_config['SCSIid'] = scsiId
+                    device_config_tmp = getConfigWithHiddenPassword(device_config, self.storage_conf['storage_type'])
                     XenCertPrint("The SR create parameters are {}, {}".format(
                         util.get_localhost_uuid(self.session),
-                        device_config))
+                        device_config_tmp))
 
                     sr_ref = self.session.xenapi.SR.create(
                             util.get_localhost_uuid(self.session),
@@ -3437,7 +3445,7 @@ class StorageHandlerGFS2(StorageHandler):
 
                     XenCertPrint(
                         "Created the SR {} using device_config {}".format(
-                            sr_ref, device_config))
+                            sr_ref, device_config_tmp))
                     displayOperationStatus(True)
                     break
 
