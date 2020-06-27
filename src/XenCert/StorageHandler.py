@@ -2233,11 +2233,11 @@ class StorageHandlerISCSI(BlockStorageHandler):
     def DisplayPathStatus(self):
         Print("       %-15s %-15s %-25s %-15s" % ('IP address', 'HBTL','Path DM status','Path status')            )
         for item in self.listPathConfig:
-            Print("       %-15s %-15s %-25s %-15s" % (StorageHandlerUtil.findIPAddress(self.mapHostToIP, item[0]), item[0], item[1], item[2]))
+            Print("       %-15s %-15s %-25s %-15s" % (StorageHandlerUtil.findIPAddress(self.mapHostToIP, item[0]), item[0], item[1], item[2]))    # NOSONAR
             
     def RandomlyFailPaths(self):
         try:
-            self.noOfPaths = random.randint(1, len(self.listPathConfig) -1 )   
+            self.noOfPaths = random.randint(1, len(self.listPathConfig) -1)    # NOSONAR
             self.blockedpathinfo = ''
             self.paths = ''
             for item in self.listPathConfig: 

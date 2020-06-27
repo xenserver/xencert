@@ -77,9 +77,7 @@ __commonparams__ = [
 def parse_args(version_string):
     """Parses the command line arguments"""
     
-    opt = OptionParser("usage: %prog [arguments seen below]",
-            version="%prog " + version_string,
-           add_help_option=False)
+    opt = OptionParser("usage: %prog [arguments seen below]", version="%prog " + version_string, add_help_option=False)    # NOSONAR
     
     for element in __nfs_args__:
         opt.add_option(element[5], element[6],

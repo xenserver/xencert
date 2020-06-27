@@ -41,7 +41,7 @@ def PrintOnSameLine(message):
 def InitLogging():
     global logfile
     global logfilename
-    logfilename = os.path.join('/tmp', 'XenCert-' + commands.getoutput('uuidgen') + '.log')
+    logfilename = os.path.join('/tmp', 'XenCert-' + commands.getoutput('uuidgen') + '.log')    # NOSONAR
     logfile = open(logfilename, 'a')
 
 def UnInitLogging():

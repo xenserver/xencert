@@ -668,12 +668,12 @@ def parse_multipathd_config(lines):
         ...
     """
     dict = {}
-    re_section_begin = re.compile(r'^([^\t ]+) {\n$')
+    re_section_begin = re.compile(r'^([^\t ]+) {\n$')    # NOSONAR
     re_section_end = re.compile(r'^}\n$')
-    re_section_attr = re.compile(r'^\t([^\t ]+) (.*[^{])\n$')
-    re_subsection_begin = re.compile(r'^\t([^\t ]+) {\n$')
+    re_section_attr = re.compile(r'^\t([^\t ]+) (.*[^{])\n$')    # NOSONAR
+    re_subsection_begin = re.compile(r'^\t([^\t ]+) {\n$')    # NOSONAR
     re_subsection_end = re.compile(r'^\t}\n$')
-    re_subsection_attr = re.compile(r'^\t\t([^\t ]+) (.*[^{])\n$')
+    re_subsection_attr = re.compile(r'^\t\t([^\t ]+) (.*[^{])\n$')    # NOSONAR
     
     for line in lines:
         m = re_section_begin.match(line)
@@ -773,7 +773,7 @@ def get_path_status(scsi_id, onlyActive = False):
 
         # Extract hbtl, dm and path status from the multipath topology output
         # e.g. "| |- 0:0:0:0 sda 8:0   active ready running"
-        pat = re.compile(r'(\d+:\d+:\d+:\d+.*)$')
+        pat = re.compile(r'(\d+:\d+:\d+:\d+.*)$')    # NOSONAR
 
         for node in listPaths:
             XenCertPrint("Looking at node: %s" % node)
@@ -815,7 +815,7 @@ def _get_localhost_uuid():
     return domid
 
 def DiskDataTest(device, test_blocks, sect_of_block=DDT_DEFAULT_BLOCK_SIZE, test_time=0):
-    iter_start = str(random.randint(0, 100000))
+    iter_start = str(random.randint(0, 100000))    # NOSONAR
     
     cmd = [DISKDATATEST, 'write', device, str(sect_of_block), str(test_blocks), str(test_time), iter_start]
     XenCertPrint("The command to be fired is: %s" % cmd)
@@ -873,7 +873,7 @@ def _find_LUN(svid):
         return []
 
     #Find CSLDEV paths
-    svid_to_use = re.sub("-[0-9]*:[0-9]*:[0-9]*:[0-9]*$","",os.path.basename(path))
+    svid_to_use = re.sub("-[0-9]*:[0-9]*:[0-9]*:[0-9]*$","",os.path.basename(path))    # NOSONAR
     devs = scsiutil._genReverseSCSIidmap(svid_to_use, pathname="csldev")
 
     #Find scsiID
