@@ -182,6 +182,24 @@ def getlist(xmlstr, tag):
     list = dom.getElementsByTagName(tag)
     return list
 
+def tgt_childnodes_value(tgt):
+	iqn = None
+	portal = None
+	for node in tgt.childNodes:
+		if node.nodeName == 'TargetIQN':
+			iqn = node.firstChild.nodeValue
+
+		if node.nodeName == 'IPAddress':
+			portal = node.firstChild.nodeValue
+	return (iqn, portal)
+
+def create_xml_string(items):
+	xmlstr = ''
+	for i in range(3, len(items)):
+		xmlstr += items[i]
+		xmlstr += ','
+	return xmlstr
+
 # The returned structure are a list of portals, and a list of SCSIIds for the specified IQN. 
 def get_list_portal_scsi_id_for_iqn(session, server, target_iqn, chapuser  = None, chappassword = None):
     try:
@@ -203,30 +221,20 @@ def get_list_portal_scsi_id_for_iqn(session, server, target_iqn, chapuser  = Non
 	    # the target may not return any IQNs
 	    # so prepare for it
 	    items = str(e).split(',')
-	    xmlstr = ''
-	    for i in range(3,len(items)):
-		xmlstr += items[i]
-		xmlstr += ','
+	    xmlstr = create_xml_string(items)
 
 	    tgt_list = getlist(xmlstr.strip(','), "TGT")
 	    for tgt in tgt_list:
-		iqn = None
-		portal = None
-		for node in tgt.childNodes:
-		    if node.nodeName == 'TargetIQN':
-			iqn = node.firstChild.nodeValue
-
-		    if node.nodeName == 'IPAddress':
-			portal = node.firstChild.nodeValue
+		(iqn, portal) = tgt_childnodes_value(tgt)
 
 		xencert_print("Got iqn: %s, portal: %s" % (iqn, portal))
 		xencert_print("The target IQN is: %s" % target_iqn)
 		if iqn == '*':
 		    continue
 		for targetiqn in target_iqn.split(','):
-		    if iqn == targetiqn:
-			list_portal.append(portal)
-			break
+			if iqn == targetiqn:
+				list_portal.append(portal)
+				break
 
 	    xencert_print("The portal list at the end of the iteration is: %s" % list_portal)
 	except Exception, e:
@@ -247,13 +255,10 @@ def get_list_portal_scsi_id_for_iqn(session, server, target_iqn, chapuser  = Non
 		# If there are no LUNs exposed, the probe data can be an empty xml
 		# so be prepared for it
 		items = str(e).split(',')
-		xmlstr = ''
-		for i in range(3,len(items)):
-		    xmlstr += items[i]
-		    xmlstr += ','
+		xmlstr = create_xml_string(items)
 		scsi_id_obj_list = getlist(xmlstr.strip(','), "SCSIid")
 		for scsi_id_obj in scsi_id_obj_list:
-		    list_scsi_id.append(scsi_id_obj.firstChild.nodeValue)
+			list_scsi_id.append(scsi_id_obj.firstChild.nodeValue)
 			
 	    except Exception, e:
 		xencert_print("The IQN: %s did not return any SCSI IDs on probe. Exception: %s" % (iqn, str(e)))
@@ -272,6 +277,33 @@ def get_list_portal_scsi_id_for_iqn(session, server, target_iqn, chapuser  = Non
 
 def extract_xml_from_exception(e):
     return ','.join(str(e).split(',')[3:])
+
+def tgt_list_function(tgt_list, hba_filter, list):
+	for tgt in tgt_list:
+		map = {}
+		for node in tgt.childNodes:
+			map[node.nodeName] = node.firstChild.nodeValue
+		if len(hba_filter) != 0:
+			if hba_filter.has_key(map['host']):
+				list.append(map)
+		else:
+			list.append(map)
+	return list
+
+def bd_list_function(bd_list, hba_filter, scsi_id_list):
+	for bd in bd_list:
+		for node in bd.childNodes:
+			if node.nodeName == 'SCSIid':
+				scsi_id = node.firstChild.nodeValue
+			elif node.nodeName == 'adapter':
+				adapter = ''.join(["host", node.firstChild.nodeValue])
+
+		if len(hba_filter) != 0:
+			if hba_filter.has_key(adapter):
+				scsi_id_list.append(scsi_id)
+		else:
+			scsi_id_list.append(scsi_id)
+	return scsi_id_list
 
 # The returned structure are a list of portals, and a list of SCSIIds for the specified IQN. 
 def get_hba_information(session, storage_conf, sr_type="lvmohba"):
@@ -297,29 +329,10 @@ def get_hba_information(session, storage_conf, sr_type="lvmohba"):
 		# so prepare for it
 		xmlstr = extract_xml_from_exception(e)
 		tgt_list = getlist(xmlstr, "Adapter")
-		for tgt in tgt_list:
-		    map = {}
-		    for node in tgt.childNodes:
-			    map[node.nodeName] = node.firstChild.nodeValue
-		    if len(hba_filter) != 0:
-			    if hba_filter.has_key(map['host']):
-				    list.append(map)
-		    else:
-			    list.append(map)
+		list = tgt_list_function(tgt_list, hba_filter, list)
 		
 		bd_list = getlist(xmlstr, "BlockDevice")
-		for bd in bd_list:
-		    for node in bd.childNodes:
-			    if node.nodeName == 'SCSIid':
-				    scsi_id = node.firstChild.nodeValue
-			    elif node.nodeName == 'adapter':
-				    adapter = ''.join(["host",node.firstChild.nodeValue])
-
-		    if len(hba_filter) != 0:
-			    if hba_filter.has_key(adapter):
-				    scsi_id_list.append(scsi_id)
-		    else:
-			    scsi_id_list.append(scsi_id)
+		scsi_id_list = bd_list_function(bd_list, hba_filter, scsi_id_list)
 	
 		xencert_print("The HBA information list being returned is: %s" % list)
 	    except Exception, e:

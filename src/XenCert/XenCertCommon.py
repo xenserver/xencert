@@ -150,16 +150,14 @@ def valid_arguments(options, g_storage_conf):
         value = getattr(options, element[0])
         g_storage_conf[element[0]] = value
 
-    if options.storage_type == "nfs":
-        subargs = __nfs_args__
-    elif options.storage_type == "cifs":
-        subargs = __cifs_args__
-    elif options.storage_type in ["hba", "fcoe"]:
-        subargs = __hba_args__
-    elif options.storage_type == "isl":
-        subargs = __isl_args__
-    elif options.storage_type == "iscsi":
-        subargs = __iscsi_args__
+    subargs_table = {
+        "nfs": __nfs_args__,
+        "cifs": __cifs_args__,
+        "hba": __hba_args__,
+        "fcoe": __hba_args__,
+        "isl": __isl_args__,
+        "iscsi": __iscsi_args__}
+    subargs = subargs_table[options.storage_type]
 
     for element in subargs:
         if not getattr(options, element[0]):
