@@ -250,7 +250,7 @@ def print_command(argvs):
     for option in ['-i', '-w', '-p']:
         try:
             option_index = temp_argvs.index(option)
-        except ValueError, e:
+        except ValueError:
             pass
         else:
             if option == '-i':
@@ -276,10 +276,8 @@ def get_config_with_hidden_password(config, storage_type):
     config_with_hidden_password = dict(config)
     if storage_type == 'iscsi' and config.get('chappassword') is not None:
         config_with_hidden_password['chappassword'] = HIDDEN_PASSWORD
-    elif storage_type == 'cifs' and config.get('password') is not None:
+    if storage_type == 'cifs' and config.get('password') is not None:
         config_with_hidden_password['password'] = HIDDEN_PASSWORD
-    else:
-        pass
     return config_with_hidden_password
 
 def hide_path_info_password(path_info, delimiter=':', password_index=2):
