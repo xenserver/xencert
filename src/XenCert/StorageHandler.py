@@ -54,17 +54,13 @@ def report(predicate, condition):
 # Hardcoded time limit for Functional tests in hours
 timeLimitFunctional = 4
 
-def retval_judge(retval, exception, checkpoint=None, point=None):
-    if not retval:
-        raise Exception(exception)
-    if checkpoint:
-        checkpoint += point
-    return checkpoint
+def check_result_for_checkpoint(retval, exception, checkpoint=0, point=1):
+    check_result(retval, exception)
+    return checkpoint + point
 
-def result_judge(result, exception, uuid=None):
+def check_result(result, exception):
     if not result:
         raise Exception(exception)
-    return uuid
 
 class TimedDeviceIO(Thread):
     def __init__(self, device):
@@ -176,7 +172,7 @@ class StorageHandler(object):
                 printout("   -> Iteration number: %d " % i)
                 total_checkpoints += (2 + pbd_plug_unplug_count)
                 (retval, sr_ref, device_config) = self.create()
-                checkpoint = retval_judge(retval, "      SR creation failed.       ", checkpoint, 1)
+                checkpoint = check_result_for_checkpoint(retval, "      SR creation failed.       ", checkpoint, 1)
                 
                  # Plug and unplug the PBD over multiple iterations
                 checkpoint += StorageHandlerUtil.plug_and_unplug_pbds(self.session, sr_ref, pbd_plug_unplug_count)
@@ -195,7 +191,7 @@ class StorageHandler(object):
             printout("   Create a new SR. ")
             try:
                 (retval, sr_ref, device_config) = self.create()
-                checkpoint = retval_judge(retval, "      SR creation failed.", checkpoint, 1)
+                checkpoint = check_result_for_checkpoint(retval, "      SR creation failed.", checkpoint, 1)
                 device_config_tmp = get_config_with_hidden_password(device_config, self.storage_conf['storage_type'])
                 xencert_print("Created the SR %s using device_config: %s " % (sr_ref, device_config_tmp))
                 display_operation_status(True)
@@ -204,7 +200,7 @@ class StorageHandler(object):
                 raise e
 
             (check_point_delta, retval) = StorageHandlerUtil.perform_sr_control_path_tests(self.session, sr_ref)
-            checkpoint = retval_judge(retval, "perform_sr_control_path_tests failed. Please check the logs for details. ", checkpoint, check_point_delta)
+            checkpoint = check_result_for_checkpoint(retval, "perform_sr_control_path_tests failed. Please check the logs for details. ", checkpoint, check_point_delta)
 
         except Exception, e: 
             printout("- Control tests failed with an exception. ")
@@ -234,6 +230,18 @@ class StorageHandler(object):
 
         xencert_print("Checkpoints: %d, total_checkpoints: %s" % (checkpoint, total_checkpoints))
         return (retval, checkpoint, total_checkpoints)
+
+    def vbd_ref_cleanup(self, vbd_ref, vdi_ref):
+        if vbd_ref is not None:
+            self.session.xenapi.VBD.unplug(vbd_ref)
+            xencert_print("Unplugged VBD %s" % vbd_ref)
+            self.session.xenapi.VBD.destroy(vbd_ref)
+            xencert_print("Destroyed VBD %s" % vbd_ref)
+
+        xencert_print("Destroying VDI %s" % vdi_ref)
+        if vdi_ref is not None:
+            self.session.xenapi.VDI.destroy(vdi_ref)
+            xencert_print("Destroyed VDI %s" % vdi_ref)
 
     def mp_config_verification_tests(self):
         disable_mp = False
@@ -269,7 +277,8 @@ class StorageHandler(object):
             #2. Create and plug SR
             printout("CREATING SR")
             (retval, sr_ref, device_config) = self.create()
-            checkpoint = retval_judge(retval, "      SR creation failed. ", checkpoint, 1)
+            checkpoint = check_result_for_checkpoint(retval, "      SR creation failed. ", checkpoint, 1)
+            display_operation_status(True)
 
             printout("MULTIPATH AUTOMATED PATH FAILOVER TESTING")
 
@@ -300,7 +309,7 @@ class StorageHandler(object):
             
             # Now testing failure times for the paths.  
             (retval, vdi_ref, vbd_ref, vdi_size) = StorageHandlerUtil.create_max_size_vdi_and_vbd(self.session, sr_ref)
-            checkpoint = retval_judge(retval, "Failed to create max size VDI and VBD.", checkpoint, 2)
+            checkpoint = check_result_for_checkpoint(retval, "Failed to create max size VDI and VBD.", checkpoint, 2)
            
             global retValIO
             global timeTaken
@@ -423,15 +432,7 @@ class StorageHandler(object):
 
         try:
             # Try cleaning up here
-            if vbd_ref is not None:
-                self.session.xenapi.VBD.unplug(vbd_ref)
-                xencert_print("Unplugged VBD %s " % vbd_ref)
-                self.session.xenapi.VBD.destroy(vbd_ref)
-                xencert_print("Destroyed VBD %s " % vbd_ref)
-
-            if vdi_ref is not None:
-                self.session.xenapi.VDI.destroy(vdi_ref)
-                xencert_print("Destroyed VDI %s " % vdi_ref)
+            self.vbd_ref_cleanup(vbd_ref, vdi_ref)
 
             # Try cleaning up here
             if sr_ref is not None:
@@ -603,7 +604,7 @@ class StorageHandler(object):
             xencert_print( "2. Now use XAPI to get information for creating an SR."           )
             printout("   -> Creating shared SR.")
             (retval, sr_ref, device_config) = self.create()
-            checkpoint = retval_judge(retval, "      SR creation failed.  ", checkpoint, 1)
+            checkpoint = check_result_for_checkpoint(retval, "      SR creation failed.  ", checkpoint, 1)
                     
             # Now check PBDs for this SR and make sure all PBDs reflect the same number of active and passive paths for hosts with multipathing enabled.  
             printout("   -> Checking paths reflected on PBDs for each host.")
@@ -692,7 +693,7 @@ class StorageHandler(object):
             (retval, list_path_config_new) = StorageHandlerUtil.get_path_status(device_config['SCSIid'])
             xencert_print("listpathconfig: %s" % self.listPathConfig)
             xencert_print("listpathconfigNew: %s" % list_path_config_new)
-            retval_judge(retval, "     - Failed to get path status information for SCSI Id: %s" % device_config['SCSIid'])
+            check_result(retval, "     - Failed to get path status information for SCSI Id: %s" % device_config['SCSIid'])
             
             # Find new number of active paths
             new_active_paths = 0
@@ -916,17 +917,20 @@ class StorageHandler(object):
                 printout(">>> 1. Metadata volume present but is of an older version.")
                 printout(">>>>     Create a SR")
                 (retval, self.sr_ref, device_config) = self.create()
-                retval_judge(retval, "      SR creation failed.  ")
+                check_result(retval, "      SR creation failed.  ")
                 self.sr_uuid = self.session.xenapi.SR.get_uuid(self.sr_ref)
                 display_operation_status(True)                
 
                 printout(">>>>     Add 3 VDIs")
                 (result, vdi_ref1) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_1")
-                vdi_uuid1 = result_judge(result, "Failed to create VDI. Error: %s" % vdi_ref1, self.session.xenapi.VDI.get_uuid(vdi_ref1))
+                check_result(result, "Failed to create VDI. Error: %s" % vdi_ref1)
+                vdi_uuid1 = self.session.xenapi.VDI.get_uuid(vdi_ref1)
                 (result, vdi_ref2) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_2")
-                vdi_uuid2 = result_judge(result, "Failed to create VDI. Error: %s" % vdi_ref2, self.session.xenapi.VDI.get_uuid(vdi_ref2))
+                check_result(result, "Failed to create VDI. Error: %s" % vdi_ref2)
+                vdi_uuid2 = self.session.xenapi.VDI.get_uuid(vdi_ref2)
                 (result, vdi_ref3) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_3")
-                vdi_uuid3 = result_judge(result, "Failed to create VDI. Error: %s " % vdi_ref3, self.session.xenapi.VDI.get_uuid(vdi_ref3))
+                check_result(result, "Failed to create VDI. Error: %s " % vdi_ref3)
+                vdi_uuid3 = self.session.xenapi.VDI.get_uuid(vdi_ref3)
                 display_operation_status(True)
 
                 # update the metadata file manually to
@@ -1090,17 +1094,17 @@ class StorageHandler(object):
                 printout(">> SR PROBE ")
                 printout(">>>     Create a SR")
                 (retval, self.sr_ref, device_config) = self.create()
-                retval_judge(retval, "      SR creation failed.   ")
+                check_result(retval, "      SR creation failed.   ")
                 self.sr_uuid = self.session.xenapi.SR.get_uuid(self.sr_ref)
                 display_operation_status(True)                
                 
                 printout(">>>     Add 3 VDIs")
                 (result, vdi_ref1) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_1")
-                result_judge(result, "Failed to create VDI. Error: %s " % vdi_ref1)
+                check_result(result, "Failed to create VDI. Error: %s " % vdi_ref1)
                 (result, vdi_ref2) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_2")
-                result_judge(result, "Failed to create VDI. Error: %s  " % vdi_ref2)
+                check_result(result, "Failed to create VDI. Error: %s  " % vdi_ref2)
                 (result, vdi_ref3) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_3")
-                result_judge(result, "Failed to create VDI. Error: %s  " % vdi_ref3)
+                check_result(result, "Failed to create VDI. Error: %s  " % vdi_ref3)
                 display_operation_status(True)
                 
                 printout(">>>      Run a non-metadata probe")
@@ -1212,24 +1216,25 @@ class StorageHandler(object):
                 printout(">>> 1. VDI present in SR metadata but missing from XAPI.")
                 printout(">>>>     Create a SR")
                 (retval, self.sr_ref, device_config) = self.create()
-                retval_judge(retval, "      SR creation failed.   ")
+                check_result(retval, "      SR creation failed.   ")
                 self.sr_uuid = self.session.xenapi.SR.get_uuid(self.sr_ref)
                 display_operation_status(True)                
 
                 printout(">>>>     Add the source VDI")
                 (result, vdi_ref1) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_1")
-                vdi_uuid1 = result_judge(result, "Failed to create VDI. Error: %s   " % vdi_ref1, self.session.xenapi.VDI.get_uuid(vdi_ref1))
+                check_result(result, "Failed to create VDI. Error: %s   " % vdi_ref1)
+                vdi_uuid1 = self.session.xenapi.VDI.get_uuid(vdi_ref1)
                 display_operation_status(True)
 
                 printout(">>>>     Snapshot the source VDI")                
                 (result, vdi_ref2) = self.snapshot_vdi(vdi_ref1)
-                vdi_uuid2 = result_judge(result, "Failed to snapshot VDI. Error: %s" % vdi_ref2,
-                                         self.session.xenapi.VDI.get_uuid(vdi_ref2))
+                check_result(result, "Failed to snapshot VDI. Error: %s" % vdi_ref2)
+                vdi_uuid2 = self.session.xenapi.VDI.get_uuid(vdi_ref2)
                 display_operation_status(True)
 
                 printout(">>>>     Clone the source VDI")
                 (result, vdi_ref3) = self.clone_vdi(vdi_ref1)
-                result_judge(result, "Failed to snapshot VDI. Error: %s" % vdi_ref3)
+                check_result(result, "Failed to snapshot VDI. Error: %s" % vdi_ref3)
                 display_operation_status(True)
 
                 printout(">>>>     Now forget VDIs in the SR and make sure they are introduced correctly")            
@@ -1338,15 +1343,16 @@ class StorageHandler(object):
                 printout(">>>>     Take 3 snapshots of the VDI")
                 vdi_ref1 = self.session.xenapi.VDI.get_by_uuid(vdi_uuid1)
                 (result, snap_ref1) = self.snapshot_vdi(vdi_ref1)
-                snap_uuid1 = result_judge(result, "Failed to snapshot VDI. Error: %s " % snap_ref1, self.session.xenapi.VDI.get_uuid(snap_ref1))
+                check_result(result, "Failed to snapshot VDI. Error: %s " % snap_ref1)
+                snap_uuid1 = self.session.xenapi.VDI.get_uuid(snap_ref1)
 
                 (result, snap_ref2) = self.snapshot_vdi(vdi_ref1)
-                snap_uuid2 = result_judge(result, "Failed to snapshot VDI. Error: %s " % snap_ref2,
-                                          self.session.xenapi.VDI.get_uuid(snap_ref2))
+                check_result(result, "Failed to snapshot VDI. Error: %s " % snap_ref2)
+                snap_uuid2 = self.session.xenapi.VDI.get_uuid(snap_ref2)
 
                 (result, snap_ref3) = self.snapshot_vdi(vdi_ref1)
-                snap_uuid3 = result_judge(result, "Failed to snapshot VDI. Error: %s  " % snap_ref3,
-                                          self.session.xenapi.VDI.get_uuid(snap_ref3))
+                check_result(result, "Failed to snapshot VDI. Error: %s  " % snap_ref3)
+                snap_uuid3 = self.session.xenapi.VDI.get_uuid(snap_ref3)
                 display_operation_status(True)
 
                 printout(">>>>     Normal scan case")
@@ -1388,11 +1394,6 @@ class StorageHandler(object):
 
         return retval
 
-    def not_equal_exception(self, value_a, value_b, exception):
-        if value_a != value_b:
-            raise Exception(exception)
-        display_operation_status(True)
-
     def metadata_sr_update_tests(self):
         try:
             retval = True
@@ -1406,17 +1407,18 @@ class StorageHandler(object):
                 printout(">>   SR UPDATE")
                 printout(">>>      Create a SR")
                 (retval, self.sr_ref, device_config) = self.create()
-                retval_judge(retval, "      SR creation failed.    ")
+                check_result(retval, "      SR creation failed.    ")
                 self.sr_uuid = self.session.xenapi.SR.get_uuid(self.sr_ref)
                 display_operation_status(True)
                 
                 printout(">>>      Add 3 VDIs")
                 (result, vdi_ref1) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_1")
-                vdi_uuid1 = result_judge(result, "Failed to create VDI. Error: %s   " % vdi_ref1, self.session.xenapi.VDI.get_uuid(vdi_ref1))
+                check_result(result, "Failed to create VDI. Error: %s   " % vdi_ref1)
+                vdi_uuid1 = self.session.xenapi.VDI.get_uuid(vdi_ref1)
                 (result, vdi_ref2) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_2")
-                result_judge(result, "Failed to create VDI. Error: %s    " % vdi_ref2)
+                check_result(result, "Failed to create VDI. Error: %s    " % vdi_ref2)
                 (result, vdi_ref3) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_3")
-                result_judge(result, "Failed to create VDI. Error: %s    " % vdi_ref3)
+                check_result(result, "Failed to create VDI. Error: %s    " % vdi_ref3)
                 display_operation_status(True)
                 
                 printout(">>>      SR update tests")
@@ -1426,8 +1428,9 @@ class StorageHandler(object):
                 display_operation_status(True)
                 
                 printout(">>>>         Make sure the name-label is updated in the metadata")
-                self.not_equal_exception(self.get_metadata_rec()[0]['name_label'], name_label_format % orig_name_label,
-                                         "SR name-label not updated in metadata.")
+                check_result(self.get_metadata_rec()[0]['name_label'] == name_label_format % orig_name_label,
+                             "SR name-label not updated in metadata.")
+                display_operation_status(True)
                     
                 printout(">>>>         Update the SR name-description")
                 orig_name_description = self.session.xenapi.SR.get_name_description(self.sr_ref)
@@ -1435,8 +1438,9 @@ class StorageHandler(object):
                 display_operation_status(True)
                     
                 printout(">>>>         Make sure the name-description is updated in the metadata")
-                self.not_equal_exception(self.get_metadata_rec()[0]['name_description'], name_label_format % orig_name_description,
-                                         "SR name-description not updated in metadata.")
+                check_result(self.get_metadata_rec()[0]['name_description'] == name_label_format % orig_name_description,
+                             "SR name-description not updated in metadata.")
+                display_operation_status(True)
                 
                 printout(">>>>         Update the SR name_label and name-description")
                 self.session.xenapi.SR.set_name_label(self.sr_ref, orig_name_label)
@@ -1457,8 +1461,9 @@ class StorageHandler(object):
                 
                 printout(">>>>         Make sure the name-label is updated in the metadata")
                 vdi_info = self.get_metadata_rec({'indexByUuid': 1, 'vdi_uuid': vdi_uuid1})[1][vdi_uuid1]
-                self.not_equal_exception(vdi_info['name_label'], name_label_format % orig_name_label,
-                                         "VDI name-label not updated in metadata.")
+                check_result(vdi_info['name_label'] == name_label_format % orig_name_label,
+                             "VDI name-label not updated in metadata.")
+                display_operation_status(True)
                     
                 printout(">>>>         Update the VDI name-description")
                 orig_name_description = self.session.xenapi.VDI.get_name_description(vdi_ref1)
@@ -1467,8 +1472,9 @@ class StorageHandler(object):
                     
                 printout(">>>>         Make sure the name-description is updated in the metadata")
                 vdi_info = self.get_metadata_rec({'indexByUuid': 1, 'vdi_uuid': vdi_uuid1})[1][vdi_uuid1]
-                self.not_equal_exception(vdi_info['name_description'], name_label_format % orig_name_description,
-                                         "VDI name-description not updated in metadata.")
+                check_result(vdi_info['name_description'] == name_label_format % orig_name_description,
+                             "VDI name-description not updated in metadata.")
+                display_operation_status(True)
                 
                 printout(">>>>         Update the VDI name_label and name-description")
                 self.session.xenapi.VDI.set_name_label(vdi_ref1, orig_name_label)
@@ -1497,8 +1503,9 @@ class StorageHandler(object):
                 self.attach_sr()
                 
                 printout(">>>>         Make sure the name-label is updated in the metadata ")
-                self.not_equal_exception(self.get_metadata_rec()[0]['name_label'], name_label_format % orig_name_label,
-                                         "SR name-label not updated in metadata.")
+                check_result(self.get_metadata_rec()[0]['name_label'] == name_label_format % orig_name_label,
+                             "SR name-label not updated in metadata.")
+                display_operation_status(True)
                 
                 # detach the SR
                 printout(">>>>         Detach the SR")
@@ -1514,8 +1521,9 @@ class StorageHandler(object):
                 self.attach_sr()
                 
                 printout(">>>>         Make sure the name-description is updated in the metadata ")
-                self.not_equal_exception(self.get_metadata_rec()[0]['name_description'], name_label_format % orig_name_description,
-                                         "SR name-description not updated in metadata.")
+                check_result(self.get_metadata_rec()[0]['name_description'] == name_label_format % orig_name_description,
+                             "SR name-description not updated in metadata.")
+                display_operation_status(True)
                 
                 # detach the SR
                 printout(">>>>         Detach the SR ")
@@ -1552,8 +1560,9 @@ class StorageHandler(object):
                 
                 printout(">>>>         Make sure the name-label is updated in the metadata ")
                 vdi_info = self.get_metadata_rec({'indexByUuid': 1, 'vdi_uuid': vdi_uuid1})[1][vdi_uuid1]
-                self.not_equal_exception(vdi_info['name_label'], name_label_format % orig_name_label,
-                                         "VDI name-label not updated in metadata.")
+                check_result(vdi_info['name_label'] == name_label_format % orig_name_label,
+                             "VDI name-label not updated in metadata.")
+                display_operation_status(True)
                     
                 # detach the SR
                 printout(">>>>         Detach the SR  ")
@@ -1570,8 +1579,9 @@ class StorageHandler(object):
                     
                 printout(">>>>         Make sure the name-description is updated in the metadata ")
                 vdi_info = self.get_metadata_rec({'indexByUuid': 1, 'vdi_uuid': vdi_uuid1})[1][vdi_uuid1]
-                self.not_equal_exception(vdi_info['name_description'], name_label_format % orig_name_description,
-                                         "VDI name-description not updated in metadata.")
+                check_result(vdi_info['name_description'] == name_label_format % orig_name_description,
+                             "VDI name-description not updated in metadata.")
+                display_operation_status(True)
                 
                 # detach the SR
                 printout(">>>>         Detach the SR  ")
@@ -1945,19 +1955,20 @@ class StorageHandlerISCSI(BlockStorageHandler):
                 printout(">>>>     VDI present in both storage and metadata but differs in type.")
                 printout(">>>>>        Create a SR")
                 (retval, self.sr_ref, device_config) = self.create()
-                retval_judge(retval, "      SR creation failed.")
+                check_result(retval, "      SR creation failed.")
                 self.sr_uuid = self.session.xenapi.SR.get_uuid(self.sr_ref)
                 display_operation_status(True)
 
                 printout(">>>>>        Add 3 VDIs")
                 (result, vdi_ref1) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_1")
-                result_judge(result, "Failed to create VDI.")
+                check_result(result, "Failed to create VDI.")
 
                 (result, vdi_ref2) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_2")
-                result_judge(result, "Failed to create VDI.")
+                check_result(result, "Failed to create VDI.")
 
                 (result, vdi_ref3) = self.create_vdi(self.sr_ref, 4 * StorageHandlerUtil.MiB, "sr_attach_test_vdi_3")
-                vdi_uuid3 = result_judge(result, "Failed to create VDI. ", self.session.xenapi.VDI.get_uuid(vdi_ref3))
+                check_result(result, "Failed to create VDI. ")
+                vdi_uuid3 = self.session.xenapi.VDI.get_uuid(vdi_ref3)
                 display_operation_status(True)
 
                 # rename a VHD- logical volume to begin with LV-
@@ -2079,13 +2090,13 @@ class StorageHandlerISCSI(BlockStorageHandler):
             xencert_print("The host id to IP map is: %s" % self.map_host_to_ip) 
             
             (retval, config_map) = StorageHandlerUtil.get_config(device_config['SCSIid'])
-            retval_judge(retval, "   - Failed to get SCSI config information for SCSI Id: %s" % device_config['SCSIid'])
+            check_result(retval, "   - Failed to get SCSI config information for SCSI Id: %s" % device_config['SCSIid'])
 
             xencert_print("The config map extracted from scsi_id %s is %s" % (device_config['SCSIid'], config_map))
             
             # Get path_checker and priority handler for this device.
             (retval, mpath_config) = StorageHandlerUtil.parse_config(config_map['ID_VENDOR'], config_map['ID_MODEL'])
-            retval_judge(retval, "   - Failed to get multipathd config information for vendor: %s and product: %s" % (config_map['ID_VENDOR'], config_map['ID_MODEL']))
+            check_result(retval, "   - Failed to get multipathd config information for vendor: %s and product: %s" % (config_map['ID_VENDOR'], config_map['ID_MODEL']))
             xencert_print("The mpath config extracted from multipathd is %s" % mpath_config)
 
             printout(">> Multipathd enabled for %s, %s with the following config" % (config_map['ID_VENDOR'], config_map['ID_MODEL']))
@@ -2097,7 +2108,7 @@ class StorageHandlerISCSI(BlockStorageHandler):
             printout("     }")
  
             (retval, self.listPathConfig) = StorageHandlerUtil.get_path_status(device_config['SCSIid'])
-            retval_judge(retval, "Failed to get path status information for SCSI Id: %s" % device_config['SCSIid'])
+            check_result(retval, "Failed to get path status information for SCSI Id: %s" % device_config['SCSIid'])
             xencert_print("The path status extracted from multipathd is %s" % self.listPathConfig)
             
             return True
@@ -2367,7 +2378,7 @@ class StorageHandlerHBA(BlockStorageHandler):
         try:
             xencert_print("First use XAPI to get information for creating an SR. ")
             (retval, list_adapters, list_scsi_id) = StorageHandlerUtil.get_hba_information(self.session, self.storage_conf, sr_type=self.sr_type)
-            retval_judge(retval, "   - Failed to get available HBA information on the host.")
+            check_result(retval, "   - Failed to get available HBA information on the host.")
             if len(list_scsi_id) == 0:                
                 raise Exception("   - Failed to get available LUNs on the host.")
             avaiable_scsi_ids = set(list_scsi_id) & set(self.storage_conf['scsiIDs'].split(','))
@@ -2404,13 +2415,13 @@ class StorageHandlerHBA(BlockStorageHandler):
         # Query DM-multipath status, reporting a) Path checker b) Path Priority handler c) Number of paths d) distribution of active vs passive paths
         try:            
             (retval, config_map) = StorageHandlerUtil.get_config(device_config['SCSIid'])
-            retval_judge(retval, "   - Failed to get SCSI config information for SCSI Id: %s" % device_config['SCSIid'])
+            check_result(retval, "   - Failed to get SCSI config information for SCSI Id: %s" % device_config['SCSIid'])
 
             xencert_print("The config map extracted from scsi_id %s is %s" % (device_config['SCSIid'], config_map))
             
             # Get path_checker and priority handler for this device.
             (retval, mpath_config) = StorageHandlerUtil.parse_config(config_map['ID_VENDOR'], config_map['ID_MODEL'])
-            retval_judge(retval, "   - Failed to get multipathd config information for vendor: %s and product: %s" % (config_map['ID_VENDOR'], config_map['ID_MODEL']))
+            check_result(retval, "   - Failed to get multipathd config information for vendor: %s and product: %s" % (config_map['ID_VENDOR'], config_map['ID_MODEL']))
                 
             xencert_print("The mpath config extracted from multipathd is %s" % mpath_config)
 
@@ -2422,7 +2433,7 @@ class StorageHandlerHBA(BlockStorageHandler):
             printout("     }")
  
             (retval, self.listPathConfig) = StorageHandlerUtil.get_path_status(device_config['SCSIid'])
-            retval_judge(retval, "Failed to get path status information for SCSI Id: %s" % device_config['SCSIid'])
+            check_result(retval, "Failed to get path status information for SCSI Id: %s" % device_config['SCSIid'])
             xencert_print("The path status extracted from multipathd is %s" % self.listPathConfig)
             
             return True
@@ -2877,7 +2888,7 @@ class StorageHandlerNFS(StorageHandler):
                     printout("   -> Iteration number: %d" % i)
                     total_checkpoints += (2 + pbd_plug_unplug_count)
                     (retval, sr_ref, device_config) = self.create(nfsv)
-                    checkpoint = retval_judge(retval, "      SR creation failed.    ", checkpoint, 1)
+                    checkpoint = check_result_for_checkpoint(retval, "      SR creation failed.    ", checkpoint, 1)
                 
                     # Plug and unplug the PBD over multiple iterations
                     checkpoint += StorageHandlerUtil.plug_and_unplug_pbds(self.session, sr_ref, pbd_plug_unplug_count)
@@ -2896,7 +2907,7 @@ class StorageHandlerNFS(StorageHandler):
                 printout("   Create a new SR.")
                 try:
                     (retval, sr_ref, device_config) = self.create(nfsv)
-                    checkpoint = retval_judge(retval, "      SR creation failed.     ", checkpoint, 1)
+                    checkpoint = check_result_for_checkpoint(retval, "      SR creation failed.     ", checkpoint, 1)
 
                     xencert_print("Created the SR %s using device_config: %s" % (sr_ref, device_config))
                     display_operation_status(True)
@@ -2905,7 +2916,7 @@ class StorageHandlerNFS(StorageHandler):
                     raise e
 
                 (check_point_delta, retval) = StorageHandlerUtil.perform_sr_control_path_tests(self.session, sr_ref)
-                checkpoint = retval_judge(retval, "perform_sr_control_path_tests failed. Please check the logs for details.", checkpoint, check_point_delta)
+                checkpoint = check_result_for_checkpoint(retval, "perform_sr_control_path_tests failed. Please check the logs for details.", checkpoint, check_point_delta)
 
             except Exception, e: 
                 printout("- Control tests failed with an exception.")
@@ -3001,7 +3012,7 @@ class StorageHandlerCIFS(StorageHandler):
                 # Create and plug SR
                 xencert_print( " Create CIFS SR.")
                 (retval, sr_ref, _trash) = self.create()
-                retval_judge(retval, "      SR creation failed.     ")
+                check_result(retval, "      SR creation failed.     ")
                 test_sr_created = True
                 testdir = "/var/run/sr-mount/%s/XenCertTestDir-%s" % (self.session.xenapi.SR.get_uuid(sr_ref), commands.getoutput('uuidgen'))
 
@@ -3069,7 +3080,7 @@ class StorageHandlerCIFS(StorageHandler):
                 printout("   -> Iteration number: %d" % i)
                 total_checkpoints += (2 + pbd_plug_unplug_count)
                 (retval, sr_ref, device_config) = self.create()
-                checkpoint = retval_judge(retval, "      SR creation failed.      ", checkpoint, 1)
+                checkpoint = check_result_for_checkpoint(retval, "      SR creation failed.      ", checkpoint, 1)
 
                 # Plug and unplug the PBD over multiple iterations
                 checkpoint += StorageHandlerUtil.plug_and_unplug_pbds(self.session, sr_ref, pbd_plug_unplug_count)
@@ -3083,7 +3094,7 @@ class StorageHandlerCIFS(StorageHandler):
             printout("   Create a new SR.")
             try:
                 (retval, sr_ref, device_config) = self.create()
-                checkpoint = retval_judge(retval, "      SR creation failed.      ", checkpoint, 1)
+                checkpoint = check_result_for_checkpoint(retval, "      SR creation failed.      ", checkpoint, 1)
 
                 device_config_tmp = get_config_with_hidden_password(device_config, self.storage_conf['storage_type'])
                 xencert_print("Created the SR %s using device_config: %s" % (sr_ref, device_config_tmp))
@@ -3093,7 +3104,7 @@ class StorageHandlerCIFS(StorageHandler):
                 raise e
 
             (check_point_delta, retval) = StorageHandlerUtil.perform_sr_control_path_tests(self.session, sr_ref)
-            checkpoint = retval_judge(retval, "perform_sr_control_path_tests failed. Please check the logs for details.", checkpoint, check_point_delta)
+            checkpoint = check_result_for_checkpoint(retval, "perform_sr_control_path_tests failed. Please check the logs for details.", checkpoint, check_point_delta)
 
         except Exception, e:
             printout("- Control tests failed with an exception.")
@@ -3138,7 +3149,7 @@ class StorageHandlerCIFS(StorageHandler):
             (retval, vdi_ref) = self.create_vdi(
                     sr_ref,
                     4 * StorageHandlerUtil.GiB)
-            retval_judge(retval, 'Error in VDI creation: %s' % vdi_ref)
+            check_result(retval, 'Error in VDI creation: %s' % vdi_ref)
             printout("Created 4GB VDI")
             checkpoint += 1
 
@@ -3326,7 +3337,7 @@ class StorageHandlerGFS2(StorageHandler):
 
     def getHbaScsiIds(self):
         (retval, list_adapters, list_scsi_id) = StorageHandlerUtil.get_hba_information(self.session, self.storage_conf)
-        retval_judge(retval, "   - Failed to get available HBA information on the host. ")
+        check_result(retval, "   - Failed to get available HBA information on the host. ")
         if len(list_scsi_id) == 0:
             raise Exception("   - Failed to get available LUNs on the host.")
         avaiable_scsi_ids = set(list_scsi_id) & set(self.storage_conf['scsiIDs'].split(','))

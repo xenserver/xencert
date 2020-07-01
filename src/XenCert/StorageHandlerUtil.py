@@ -169,7 +169,7 @@ def find_ip_address(map_host_to_ip, hbtl):
         xencert_print("Failed to find IP address for hbtl: %s, map_host_to_ip: %s, exception: %s" % (hbtl, map_host_to_ip, str(e)))
         raise Exception("No IP for hbtl %s in %s" % (hbtl, map_host_to_ip))
 
-def getlist(xmlstr, tag):
+def parse_probe_xml_data(xmlstr):
     xmlstr = xmlstr.lstrip()
     xmlstr = xmlstr.lstrip('\'')
     xmlstr = xmlstr.rstrip()
@@ -178,9 +178,7 @@ def getlist(xmlstr, tag):
     xmlstr = xmlstr.replace('\\n', '')
     xmlstr = xmlstr.replace('\\t', '')
     xencert_print("Got the probe xml as: %s" % xmlstr)
-    dom = xml.dom.minidom.parseString(xmlstr)
-    list = dom.getElementsByTagName(tag)
-    return list
+    return xml.dom.minidom.parseString(xmlstr)
 
 def tgt_childnodes_value(tgt):
 	iqn = None
@@ -223,7 +221,7 @@ def get_list_portal_scsi_id_for_iqn(session, server, target_iqn, chapuser  = Non
 	    items = str(e).split(',')
 	    xmlstr = create_xml_string(items)
 
-	    tgt_list = getlist(xmlstr.strip(','), "TGT")
+	    tgt_list = parse_probe_xml_data(xmlstr.strip(',')).getElementsByTagName("TGT")
 	    for tgt in tgt_list:
 		(iqn, portal) = tgt_childnodes_value(tgt)
 
@@ -256,7 +254,7 @@ def get_list_portal_scsi_id_for_iqn(session, server, target_iqn, chapuser  = Non
 		# so be prepared for it
 		items = str(e).split(',')
 		xmlstr = create_xml_string(items)
-		scsi_id_obj_list = getlist(xmlstr.strip(','), "SCSIid")
+		scsi_id_obj_list = parse_probe_xml_data(xmlstr.strip(',')).getElementsByTagName("SCSIid")
 		for scsi_id_obj in scsi_id_obj_list:
 			list_scsi_id.append(scsi_id_obj.firstChild.nodeValue)
 			
@@ -328,10 +326,11 @@ def get_hba_information(session, storage_conf, sr_type="lvmohba"):
 		# the target may not return any IQNs
 		# so prepare for it
 		xmlstr = extract_xml_from_exception(e)
-		tgt_list = getlist(xmlstr, "Adapter")
+		dom = parse_probe_xml_data(xmlstr)
+		tgt_list = dom.getElementsByTagName("Adapter")
 		list = tgt_list_function(tgt_list, hba_filter, list)
 		
-		bd_list = getlist(xmlstr, "BlockDevice")
+		bd_list = dom.getElementsByTagName("BlockDevice")
 		scsi_id_list = bd_list_function(bd_list, hba_filter, scsi_id_list)
 	
 		xencert_print("The HBA information list being returned is: %s" % list)
