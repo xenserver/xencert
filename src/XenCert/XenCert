@@ -25,7 +25,7 @@ import time
 import commands
 import XenCertCommon
 import StorageHandler
-from XenCertLog import InitLogging, UnInitLogging, PrintToLog, Print, GetLogFileName
+from XenCertLog import init_logging, uninit_logging, print_to_log, printout, get_log_file_name
 
 
 version = "@KIT_VERSION@"
@@ -35,8 +35,8 @@ def main():
 
     pass_all = True
     g_storage_conf = {}
-    InitLogging()
-    PrintToLog("***********************************************************************\n")
+    init_logging()
+    print_to_log("***********************************************************************\n")
 
     (options, args) = XenCertCommon.parse_args(version)
     # Convert legacy lvmoXXX storage types to their base type
@@ -44,15 +44,15 @@ def main():
         options.storage_type = options.storage_type.lstrip("lvmo")
 
     if args:
-        Print("Unknown arguments found: %s" % args)
+        printout("Unknown arguments found: %s" % args)
         sys.exit(1)
 
-    PrintToLog("The XenCert command executed is: \n\n")
-    XenCertCommon.printCommand(sys.argv)
-    PrintToLog('\n\n')
+    print_to_log("The XenCert command executed is: \n\n")
+    XenCertCommon.print_command(sys.argv)
+    print_to_log('\n\n')
 
     if options.help:
-        XenCertCommon.DisplayUsage()
+        XenCertCommon.display_usage()
         return 0
 
     if not XenCertCommon.valid_arguments(options, g_storage_conf):
@@ -63,23 +63,23 @@ def main():
     # Now is the time to instantiate the right handler based on the
     # requested storage type and hand it over to the handler to
     # perform the certification process
-    handler = StorageHandler.GetStorageHandler(g_storage_conf)
+    handler = StorageHandler.get_storage_handler(g_storage_conf)
     build = commands.getoutput('cat /etc/xensource-inventory | grep BUILD_NUMBER')
-    Print("********************** Welcome to XenCert %s %s *****************" % (version, build))
-    Print("Test start time: %s" % time.asctime(time.localtime()))
+    printout("********************** Welcome to XenCert %s %s *****************" % (version, build))
+    printout("Test start time: %s" % time.asctime(time.localtime()))
     start = datetime.now()
-    Print("***********************************************************************")  
+    printout("***********************************************************************")  
     testAll = False
 
     if not options.functional and not options.control and not options.multipath and not options.pool and not options.data and not options.metadata:
         testAll = True
     
     if options.multipath or testAll:
-        Print("Performing multipath configuration verification.")
-        (retValMP, checkPointsMP, totalCheckPointsMP) = handler.MPConfigVerificationTests()
+        printout("Performing multipath configuration verification.")
+        (retValMP, checkPointsMP, totalCheckPointsMP) = handler.mp_config_verification_tests()
         if checkPointsMP != totalCheckPointsMP:
             pass_all = False
-        Print("***********************************************************************")
+        printout("***********************************************************************")
         timeOfCompletionMP = time.asctime(time.localtime())
     else:
         retValMP = None
@@ -88,11 +88,11 @@ def main():
         timeOfCompletionMP = 0
 
     if options.control or testAll: 
-        Print("Performing control path stress tests.")
-        (retValControl, checkPointsControl, totalCheckPointsControl) = handler.ControlPathStressTests()
+        printout("Performing control path stress tests.")
+        (retValControl, checkPointsControl, totalCheckPointsControl) = handler.control_path_stress_tests()
         if checkPointsControl != totalCheckPointsControl:
             pass_all = False
-        Print("***********************************************************************")
+        printout("***********************************************************************")
         timeOfCompletionControl = time.asctime(time.localtime())
     else:
         retValControl = None
@@ -101,82 +101,82 @@ def main():
         timeOfCompletionControl = 0
 
     if options.pool or testAll:
-        Print("Performing pool tests to ensure consistency.")
-        (retValPool, checkPointsPool, totalCheckPointsPool) = handler.PoolTests()
+        printout("Performing pool tests to ensure consistency.")
+        (retValPool, checkPointsPool, totalCheckPointsPool) = handler.pool_tests()
         if checkPointsPool != totalCheckPointsPool:
             pass_all = False
-        Print("***********************************************************************")
+        printout("***********************************************************************")
         timeOfCompletionPool = time.asctime(time.localtime())
 
     if options.functional or testAll: 
-        Print("Performing functional tests.")
-        (retValFunctional, checkPointsFunctional, totalCheckPointsFunctional) = handler.FunctionalTests()
+        printout("Performing functional tests.")
+        (retValFunctional, checkPointsFunctional, totalCheckPointsFunctional) = handler.functional_tests()
         if checkPointsFunctional != checkPointsFunctional:
             pass_all = False
-        Print("***********************************************************************")
+        printout("***********************************************************************")
         timeOfCompletionFunctional = time.asctime(time.localtime())
 
     if options.data or testAll: 
-        Print("Performing data IO tests.")
-        (retValData, checkPointsData, totalCheckPointsData) = handler.DataIntegrityTests()
+        printout("Performing data IO tests.")
+        (retValData, checkPointsData, totalCheckPointsData) = handler.data_integrity_tests()
         if checkPointsData != checkPointsData:
             pass_all = False
-        Print("***********************************************************************")
+        printout("***********************************************************************")
         timeOfCompletionData = time.asctime(time.localtime())
     
     if options.metadata:
-        Print("Performing metadata tests.")
-        (retValMetadata, checkPointsMetaData, totalCheckPointsMetaData) = handler.MetaDataTests()
-        Print("***********************************************************************")
+        printout("Performing metadata tests.")
+        (retValMetadata, checkPointsMetaData, totalCheckPointsMetaData) = handler.meta_data_tests()
+        printout("***********************************************************************")
         timeOfCompletionMetadata = time.asctime(time.localtime())
 
     # Now display all the results
     if options.multipath or testAll:
-        Print("***********************************************************************")
-        XenCertCommon.showReport('Multipath configuration verification results', retValMP, checkPointsMP, totalCheckPointsMP,
+        printout("***********************************************************************")
+        XenCertCommon.show_report('Multipath configuration verification results', retValMP, checkPointsMP, totalCheckPointsMP,
                    timeOfCompletionMP)
 
     if options.control or testAll:     	
-        Print("***********************************************************************")
-        XenCertCommon.showReport('Control path stress test results', retValControl, checkPointsControl, totalCheckPointsControl,
+        printout("***********************************************************************")
+        XenCertCommon.show_report('Control path stress test results', retValControl, checkPointsControl, totalCheckPointsControl,
                    timeOfCompletionControl)
 
     if options.pool or testAll:
-        Print("***********************************************************************")
-        XenCertCommon.showReport('Pool test results', retValPool, checkPointsPool, totalCheckPointsPool, timeOfCompletionPool)
+        printout("***********************************************************************")
+        XenCertCommon.show_report('Pool test results', retValPool, checkPointsPool, totalCheckPointsPool, timeOfCompletionPool)
 
     if options.functional or testAll:     	
-        Print("***********************************************************************")
-        XenCertCommon.showReport('Functional test results', retValFunctional, checkPointsFunctional, totalCheckPointsFunctional,
+        printout("***********************************************************************")
+        XenCertCommon.show_report('Functional test results', retValFunctional, checkPointsFunctional, totalCheckPointsFunctional,
                    timeOfCompletionFunctional)
 
     if options.data or testAll:         
-        Print("***********************************************************************")
-        XenCertCommon.showReport('Data test results', retValData, checkPointsData, totalCheckPointsData, timeOfCompletionData)
+        printout("***********************************************************************")
+        XenCertCommon.show_report('Data test results', retValData, checkPointsData, totalCheckPointsData, timeOfCompletionData)
         
     if options.metadata:
-        Print("***********************************************************************")
-        XenCertCommon.showReport('Metadata test results', retValMetadata, checkPointsMetaData, totalCheckPointsMetaData, timeOfCompletionMetadata)
+        printout("***********************************************************************")
+        XenCertCommon.show_report('Metadata test results', retValMetadata, checkPointsMetaData, totalCheckPointsMetaData, timeOfCompletionMetadata)
 
-    Print("***********************************************************************")
-    Print("End of XenCert certification suite.")
-    Print("Please find the report for this test run at: %s" % GetLogFileName())
-    Print("***********************************************************************")
+    printout("***********************************************************************")
+    printout("End of XenCert certification suite.")
+    printout("Please find the report for this test run at: %s" % get_log_file_name())
+    printout("***********************************************************************")
     end = datetime.now()
-    Print("Test end time: %s" % time.asctime(time.localtime()))
+    printout("Test end time: %s" % time.asctime(time.localtime()))
     timed = end - start
     hr = timed.seconds/3600
     min = timed.seconds%3600/60
     sec = timed.seconds%60
     if hr > 0:
-        Print("Execution time: %d hours, %d minutes, %d seconds." % (hr, min, sec))
+        printout("Execution time: %d hours, %d minutes, %d seconds." % (hr, min, sec))
     elif min > 0:
-        Print("Execution time: %d minutes, %d seconds." % (min, sec))
+        printout("Execution time: %d minutes, %d seconds." % (min, sec))
     elif sec > 0:
-        Print("Execution time: %d seconds." % sec)	    
+        printout("Execution time: %d seconds." % sec)	    
     
-    Print("***********************************************************************")  
-    UnInitLogging()
+    printout("***********************************************************************")  
+    uninit_logging()
 
     if pass_all:
         sys.exit(0)

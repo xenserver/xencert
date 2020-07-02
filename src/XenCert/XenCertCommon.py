@@ -16,7 +16,7 @@
 """Manual Xen Certification script"""
 import time
 from optparse import OptionParser
-from XenCertLog import PrintToLog, Print
+from XenCertLog import print_to_log, printout
 
 
 storage_type = "storage type (iscsi, hba, nfs, isl, fcoe)"
@@ -77,9 +77,7 @@ __commonparams__ = [
 def parse_args(version_string):
     """Parses the command line arguments"""
     
-    opt = OptionParser("usage: %prog [arguments seen below]",
-            version="%prog " + version_string,
-           add_help_option=False)
+    opt = OptionParser("usage: %prog [arguments seen below]", version="%prog " + version_string, add_help_option=False)    # NOSONAR
     
     for element in __nfs_args__:
         opt.add_option(element[5], element[6],
@@ -138,13 +136,13 @@ def store_configuration(g_storage_conf, options):
 def valid_arguments(options, g_storage_conf):
     """ validate arguments """
     if not options.storage_type in ["hba", "nfs", "cifs", "iscsi", "isl", "fcoe"]:
-        Print("Error: storage type (hba, nfs, cifs, isl, fcoe or iscsi) is required")
+        printout("Error: storage type (hba, nfs, cifs, isl, fcoe or iscsi) is required")
         return 0
 
     for element in __commonparams__:
         if not getattr(options, element[0]):
             if element[4] == "required":
-                Print("Error: %s argument (%s: %s) for storage type %s" \
+                printout("Error: %s argument (%s: %s) for storage type %s" \
                        % (element[4], element[5], element[1], options.storage_type))
                 return 0
             else:
@@ -152,23 +150,21 @@ def valid_arguments(options, g_storage_conf):
         value = getattr(options, element[0])
         g_storage_conf[element[0]] = value
 
-    if options.storage_type == "nfs":
-        subargs = __nfs_args__
-    elif options.storage_type == "cifs":
-        subargs = __cifs_args__
-    elif options.storage_type in ["hba", "fcoe"]:
-        subargs = __hba_args__
-    elif options.storage_type == "isl":
-        subargs = __isl_args__
-    elif options.storage_type == "iscsi":
-        subargs = __iscsi_args__
+    subargs_table = {
+        "nfs": __nfs_args__,
+        "cifs": __cifs_args__,
+        "hba": __hba_args__,
+        "fcoe": __hba_args__,
+        "isl": __isl_args__,
+        "iscsi": __iscsi_args__}
+    subargs = subargs_table[options.storage_type]
 
     for element in subargs:
         if not getattr(options, element[0]):
             if element[4] == "required":
-                Print("Error: %s argument (%s: %s) for storage type %s" \
+                printout("Error: %s argument (%s: %s) for storage type %s" \
                        % (element[4], element[5], element[1], options.storage_type))
-                DisplayUsage(options.storage_type)
+                display_usage(options.storage_type)
                 return 0
             else:
                 g_storage_conf[element[0]] = "" 
@@ -177,119 +173,117 @@ def valid_arguments(options, g_storage_conf):
         
     return 1
 
-def DisplayCommonOptions():
-    Print("usage: XenCert [arguments seen below] \n\
+def display_common_options():
+    printout("usage: XenCert [arguments seen below] \n\
 \n\
 Common options:\n")
     for item in __common__:
-        printHelpItem(item)
+        print_help_item(item)
     
-def DisplayiSCSIOptions():
-    Print(" Storage type iscsi:\n")
+def display_iscsi_options():
+    printout(" Storage type iscsi:\n")
     for item in __iscsi_args__:
-        printHelpItem(item)
+        print_help_item(item)
  
-def DisplayNfsOptions():
-    Print(" Storage type nfs:\n")
+def display_nfs_options():
+    printout(" Storage type nfs:\n")
     for item in __nfs_args__:
-        printHelpItem(item)
+        print_help_item(item)
 
-def DisplayCIFSOptions():
-    Print(" Storage type cifs:\n")
+def display_cifs_options():
+    printout(" Storage type cifs:\n")
     for item in __cifs_args__:
-        printHelpItem(item)
+        print_help_item(item)
   
-def DisplayHBAOptions():
-    Print(" Storage type hba:\n")
+def display_hba_options():
+    printout(" Storage type hba:\n")
     for item in __hba_args__:
-        printHelpItem(item)    
+        print_help_item(item)    
 
-def DisplayiSLOptions():
-    Print(" Storage type isl:\n")
+def display_isl_options():
+    printout(" Storage type isl:\n")
     for item in __isl_args__:
-        printHelpItem(item)    
+        print_help_item(item)    
   
-def DisplayTestSpecificOptions():
-    Print("Test specific options:")
-    Print("Multipathing test options (-m above):\n")
+def display_test_specific_options():
+    printout("Test specific options:")
+    printout("Multipathing test options (-m above):\n")
     for item in __commonparams__:
-        printHelpItem(item)
+        print_help_item(item)
 
-def DisplayStorageSpecificUsage(storage_type):
+def display_storage_specific_usage(storage_type):
     if storage_type == 'iscsi':
-        DisplayiSCSIOptions()
+        display_iscsi_options()
     elif storage_type == 'nfs':
-        DisplayNfsOptions()
+        display_nfs_options()
     elif storage_type == 'cifs':
-        DisplayCIFSOptions()
+        display_cifs_options()
     elif storage_type in ['hba', 'fcoe']:
-        DisplayHBAOptions()
+        display_hba_options()
     elif storage_type == 'isl':
-        DisplayiSLOptions()
+        display_isl_options()
     elif storage_type is None:
-        DisplayiSCSIOptions()
-        Print("")
-        DisplayNfsOptions()
-        Print("")
-        DisplayCIFSOptions()
-        Print("")
-        DisplayHBAOptions()        
-        Print("")
-        DisplayiSLOptions()        
+        display_iscsi_options()
+        printout("")
+        display_nfs_options()
+        printout("")
+        display_cifs_options()
+        printout("")
+        display_hba_options()        
+        printout("")
+        display_isl_options()        
      
-def DisplayUsage(storage_type=None):
-    DisplayCommonOptions()
-    Print("\nStorage specific options:\n")
-    DisplayStorageSpecificUsage(storage_type)
-    Print("")
-    DisplayTestSpecificOptions()
+def display_usage(storage_type=None):
+    display_common_options()
+    printout("\nStorage specific options:\n")
+    display_storage_specific_usage(storage_type)
+    printout("")
+    display_test_specific_options()
 
-def printHelpItem(item):
-    Print(" %s %-20s\t[%s] %s" % (item[5], item[0], item[4], item[1]))
+def print_help_item(item):
+    printout(" %s %-20s\t[%s] %s" % (item[5], item[0], item[4], item[1]))
     
-def printCommand(argvs):
+def print_command(argvs):
     temp_argvs = argvs[:]
     for option in ['-i', '-w', '-p']:
         try:
             option_index = temp_argvs.index(option)
-        except ValueError, e:
+        except ValueError:
             pass
         else:
             if option == '-i':
-                temp_argvs[option_index+1] = ':'.join(getCmdsWithHiddenPassword(temp_argvs[option_index + 1].split(':'), 2))
+                temp_argvs[option_index+1] = ':'.join(get_cmds_with_hidden_password(temp_argvs[option_index + 1].split(':'), 2))
             else:
                 temp_argvs[option_index+1] = HIDDEN_PASSWORD
     for argv in temp_argvs:
-        PrintToLog(argv)
-        PrintToLog(' ')
+        print_to_log(argv)
+        print_to_log(' ')
 
-def displayOperationStatus(passOrFail, customValue=''):
-    if passOrFail:
-        Print("                                                                                                   PASS [Completed%s]" % customValue)
+def display_operation_status(pass_or_fail, custom_value=''):
+    if pass_or_fail:
+        printout("                                                                                                   PASS [Completed%s]" % custom_value)
     else:
-        Print("                                                                                                   FAIL [%s]" % time.asctime(time.localtime()))
+        printout("                                                                                                   FAIL [%s]" % time.asctime(time.localtime()))
 
-def getCmdsWithHiddenPassword(cmd, password_index=-3):
+def get_cmds_with_hidden_password(cmd, password_index=-3):
     cmd_with_hidden_password = cmd[:]
     cmd_with_hidden_password[password_index] = HIDDEN_PASSWORD
     return cmd_with_hidden_password
 
-def getConfigWithHiddenPassword(config, storage_type):
+def get_config_with_hidden_password(config, storage_type):
     config_with_hidden_password = dict(config)
     if storage_type == 'iscsi' and config.get('chappassword') is not None:
         config_with_hidden_password['chappassword'] = HIDDEN_PASSWORD
-    elif storage_type == 'cifs' and config.get('password') is not None:
+    if storage_type == 'cifs' and config.get('password') is not None:
         config_with_hidden_password['password'] = HIDDEN_PASSWORD
-    else:
-        pass
     return config_with_hidden_password
 
-def hidePathInfoPassword(pathInfo, delimiter=':', password_index=2):
-    infoList = pathInfo.split(delimiter)
-    if len(infoList) > password_index:
-        infoList[password_index] = HIDDEN_PASSWORD
-    return delimiter.join(infoList)
+def hide_path_info_password(path_info, delimiter=':', password_index=2):
+    info_list = path_info.split(delimiter)
+    if len(info_list) > password_index:
+        info_list[password_index] = HIDDEN_PASSWORD
+    return delimiter.join(info_list)
 
-def showReport(msg, result, checkPoints=1, totalCheckPoints=1, time=0):
-    Print("%-50s: %s, Pass percentage: %d, Completed: %s" %
-          (msg, TAG_PASS if result else TAG_FAIL, int((checkPoints * 100) / totalCheckPoints), time))
+def show_report(msg, result, checkpoints=1, total_checkpoints=1, time=0):
+    printout("%-50s: %s, Pass percentage: %d, Completed: %s" %
+          (msg, TAG_PASS if result else TAG_FAIL, int((checkpoints * 100) / total_checkpoints), time))

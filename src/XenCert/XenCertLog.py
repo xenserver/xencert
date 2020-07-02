@@ -8,7 +8,7 @@ logfile = None
 logfilename = None
 
 
-def PrintToLog(message):
+def print_to_log(message):
     try:
         global logfile
         logfile.write(message)
@@ -16,8 +16,8 @@ def PrintToLog(message):
     except:
         pass
 
-def Print(message):
-    # Print to the stdout and to a temp file.
+def printout(message):
+    # printout to the stdout and to a temp file.
     try:
         sys.stdout.write(message)
         sys.stdout.write('\n')
@@ -28,8 +28,8 @@ def Print(message):
     except:
         pass
 
-def PrintOnSameLine(message):
-    # Print to the stdout and to a temp file.
+def print_on_same_line(message):
+    # printout to the stdout and to a temp file.
     try:
         sys.stdout.write(message)
         global logfile
@@ -38,19 +38,19 @@ def PrintOnSameLine(message):
     except:
         pass
 
-def InitLogging():
+def init_logging():
     global logfile
     global logfilename
-    logfilename = os.path.join('/tmp', 'XenCert-' + commands.getoutput('uuidgen') + '.log')
+    logfilename = os.path.join('/tmp', 'XenCert-' + commands.getoutput('uuidgen') + '.log')    # NOSONAR
     logfile = open(logfilename, 'a')
 
-def UnInitLogging():
+def uninit_logging():
     global logfile
     logfile.close()
 
-def GetLogFileName():
+def get_log_file_name():
     global logfilename
     return logfilename
 
-def XenCertPrint(message):
+def xencert_print(message):
     SMlog("XenCert - " + message)
