@@ -21,6 +21,8 @@ import util
 import xen.lowlevel.xs
 import random
 
+from XenCertLog import xencert_print
+
 def help():
     print "Usage: blockunblockiscsipaths <block/unblock> <noOfPaths> <IP1>,<IP2>,..."
     sys.exit(-1)
@@ -44,6 +46,7 @@ def unblock_ip(ip):
         util.SMlog("There was an exception in blocking ip: %s" % ip)
 	
 # Test Cmdline args
+xencert_print("Entering blockunblockiscsipaths")
 if len(sys.argv) != 4:
     help()
 
@@ -59,9 +62,11 @@ else:
 paths = ''
 for ip in newList:    
     if op == 'block':
+        xencert_print('blockunblockiscsipaths - blocking ip %s' % ip)
 	paths += ip
 	block_ip(ip)
     elif op == 'unblock':
+        xencert_print('blockunblockiscsipaths - unblocking ip %s' % ip)
 	unblock_ip(ip)
     else:
 	continue

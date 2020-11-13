@@ -56,20 +56,6 @@ DISKDATATEST = '/opt/xensource/debug/XenCert/diskdatatest'
 DDT_SECTOR_SIZE = 512           # one sector size: 512 bytes
 DDT_DEFAULT_BLOCK_SIZE = 512    # one block size: 512 sectors, 256KB
 
-multiPathDefaultsMap = { 'udev_dir':'/dev',
-			    'polling_interval':'5',
-			    'selector': "round-robin 0",
-			    'path_grouping_policy':'failover',
-			    'getuid_callout':"/usr/lib/udev/scsi_id --whitelisted --replace-whitespace /dev/%n",
-			    'prio_callout':'none',
-			    'path_checker':'readsector0',
-			    'rr_min_io':'1000',
-			    'rr_weight':'uniform',
-			    'failback':'manual',
-			    'no_path_retry':'fail',
-			    'user_friendly_names':'no',
-			    'bindings_file':"/var/lib/multipath/bindings" }
-
 
 def _init_adapters():
     # Generate a list of active adapters
@@ -716,7 +702,7 @@ def parse_config(vendor, product):
             re_product = re.compile(attr_map['product'].strip('"'))
             if (re_vendor.search(vendor) and re_product.search(product)):
                 xencert_print("matched vendor and product")
-                device_config = dict(multiPathDefaultsMap.items() + attr_map.items())
+                device_config = dict(d["defaults"] + attr_map.items())
                 break
     except Exception, e:
         xencert_print("Failed to get multipath config for vendor: %s and product: %s. Exception: %s" % (vendor, product, str(e)))
