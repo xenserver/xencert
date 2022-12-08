@@ -579,7 +579,7 @@ def perform_sr_control_path_tests(session, sr_ref):
 	elif time_to_write > 0:
 	    printout("   APPROXIMATE RUN TIME: %s seconds." % (time_to_write))
 
-	if not util.zeroOut(devicename, 1, int(vdi_size)):	    
+	if not util.zeroOut(devicename, 0, int(vdi_size)):
 	    raise Exception("   - Could not write through the allocated disk space on test disk, please check the log for the exception details.")
 	    
 	printout("   END TIME: %s " % (time.asctime(time.localtime())))
