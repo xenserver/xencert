@@ -1,4 +1,4 @@
-The Citrix Hypervisor Storage Certification Kit
+The XenServer Storage Certification Kit
 =======================================
 
-This repository contains the code of the "Citrix Hypervisor Storage Certification Kit".
+This repository contains the code of the "XenServer Storage Certification Kit".
