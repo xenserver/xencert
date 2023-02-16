@@ -26,16 +26,14 @@ from XenCertCommon import display_operation_status, get_config_with_hidden_passw
 import scsiutil
 import util
 import lvutil, vhdutil
-from lvhdutil import MSIZE
 import iscsilib
 import mpath_cli
 import mpath_dmp
 import xs_errors
 
-
 ISCSI_PROCNAME = "iscsi_tcp"
 dev_path = '/dev/'
-time_taken = '' 
+time_taken = ''
 bytesCopied = ''
 speedOfCopy = ''
 timeLimitControlInSec = 18000
@@ -54,8 +52,11 @@ BUF_PATTERN_REV = CHAR_SEQ_REV + CHAR_SEQ_REV
 BUF_ZEROS = "\0" * 512
 
 DISKDATATEST = '/opt/xensource/debug/XenCert/diskdatatest'
-DDT_SECTOR_SIZE = 512           # one sector size: 512 bytes
-DDT_DEFAULT_BLOCK_SIZE = 512    # one block size: 512 sectors, 256KB
+DDT_SECTOR_SIZE = 512  # one sector size: 512 bytes
+DDT_DEFAULT_BLOCK_SIZE = 512  # one block size: 512 sectors, 256KB
+
+MSIZE_MB = 2 * 1024 * 1024  # max virt size for fast resize
+MSIZE = int(MSIZE_MB * 1024 * 1024)
 
 
 def _init_adapters():
@@ -69,92 +70,104 @@ def _init_adapters():
                 (addr, port) = iscsilib.get_targetIP_and_port(host)
             else:
                 addr = util.get_single_entry(glob.glob(
-                    '/sys/class/iscsi_host/host%s/device/session*/connection*/iscsi_connection*/persistent_address' % host)[0])
+                    '/sys/class/iscsi_host/host%s/device/session*/connection*/iscsi_connection*/persistent_address' % host)[
+                                                 0])
                 port = util.get_single_entry(glob.glob(
-                    '/sys/class/iscsi_host/host%s/device/session*/connection*/iscsi_connection*/persistent_port' % host)[0])
+                    '/sys/class/iscsi_host/host%s/device/session*/connection*/iscsi_connection*/persistent_port' % host)[
+                                                 0])
             adapter[host] = (addr, port)
-        except Exception, e:
+        except Exception as e:
             xencert_print("Ignore host %d IP because of exception %s" % (host, str(e)))
     return adapter
+
 
 def is_mp_enabled(session, host_ref):
     try:
         hconf = session.xenapi.host.get_other_config(host_ref)
         xencert_print("Host.other_config: %s" % hconf)
-        
-        if hconf['multipathing'] == 'true' and hconf['multipathhandle'] == 'dmp':
-	    return True
 
-    except Exception, e:
-	xencert_print("Exception determining multipath status. Exception: %s" % str(e))
-    return False
+        if hconf['multipathing'] == 'true' and hconf['multipathhandle'] == 'dmp':
+            return True
+
+    except Exception as e:
+        xencert_print("Exception determining multipath status. Exception: %s" % str(e))
+        return False
+
 
 def enable_multipathing(session, host):
     try:
-        session.xenapi.host.remove_from_other_config(host , 'multipathing')
+        session.xenapi.host.remove_from_other_config(host, 'multipathing')
         session.xenapi.host.remove_from_other_config(host, 'multipathhandle')
         session.xenapi.host.add_to_other_config(host, 'multipathing', 'true')
         session.xenapi.host.add_to_other_config(host, 'multipathhandle', 'dmp')
 
-    except Exception, e:
-	xencert_print("Exception enabling multipathing. Exception: %s" % str(e))
+    except Exception as e:
+        xencert_print("Exception enabling multipathing. Exception: %s" % str(e))
+
 
 def disable_multipathing(session, host):
     try:
-        session.xenapi.host.remove_from_other_config(host , 'multipathing')
+        session.xenapi.host.remove_from_other_config(host, 'multipathing')
         session.xenapi.host.remove_from_other_config(host, 'multipathhandle')
         session.xenapi.host.add_to_other_config(host, 'multipathing', 'false')
 
-    except Exception, e:
-	xencert_print("Exception disabling multipathing. Exception: %s" % str(e))
+    except Exception as e:
+        xencert_print("Exception disabling multipathing. Exception: %s" % str(e))
+
 
 def block_ip(ip):
     try:
-	cmd = ['iptables', '-A', 'INPUT', '-s', ip, '-j', 'DROP']
+        cmd = ['iptables', '-A', 'INPUT', '-s', ip, '-j', 'DROP']
         util.pread(cmd)
-    except Exception, e:
+    except Exception as e:
         xencert_print("There was an exception in blocking ip: %s. Exception: %s" % (ip, str(e)))
+
 
 def unblock_ip(ip):
     try:
-	cmd = ['iptables', '-D', 'INPUT', '-s', ip, '-j', 'DROP']
+        cmd = ['iptables', '-D', 'INPUT', '-s', ip, '-j', 'DROP']
         util.pread(cmd)
-    except Exception, e:
+    except Exception as e:
         xencert_print("There was an exception in unblocking ip: %s. Exception: %s" % (ip, str(e)))
-   
+
+
 def actual_sr_free_space(size):
     num = (size - lvutil.LVM_SIZE_INCREMENT - 4096 - vhdutil.calcOverheadEmpty(MSIZE)) * vhdutil.VHD_BLOCK_SIZE
     den = 4096 + vhdutil.VHD_BLOCK_SIZE
 
-    return num/den
+    return num / den
+
 
 def get_config(scsiid):
     try:
-	retval = True
-	config_map = {}
-	device = scsiutil._genReverseSCSIidmap(scsiid)[0]
-	xencert_print("get_config - device: %s" % device)
-	cmd = ["/usr/lib/udev/scsi_id", "--replace-whitespace", "--whitelisted", "--export", device]
-	ret = util.pread2(cmd)
-	xencert_print("get_config - scsi_if output: %s" % ret)
-	for tuple in ret.split('\n'):
-	    if tuple.find('=') != -1:
-		config_map[tuple.split('=')[0]] = tuple.split('=')[1]
+        retval = True
+        config_map = {}
+        device = scsiutil._genReverseSCSIidmap(scsiid)[0]
+        xencert_print("get_config - device: %s" % device)
+        cmd = ["/usr/lib/udev/scsi_id", "--replace-whitespace", "--whitelisted", "--export", device]
+        ret = util.pread2(cmd)
+        xencert_print("get_config - scsi_if output: %s" % ret)
+        for tuple in ret.split('\n'):
+            if tuple.find('=') != -1:
+                config_map[tuple.split('=')[0]] = tuple.split('=')[1]
 
-    except Exception, e:
-	xencert_print("There was an exception getting SCSI device config. Exception: %s" % str(e))
-	retval = False
+    except Exception as e:
+        xencert_print("There was an exception getting SCSI device config. Exception: %s" % str(e))
+        retval = False
 
     return (retval, config_map)
+
 
 def find_ip_address(map_host_to_ip, hbtl):
     try:
         host = hbtl.split(':')[0]
         if host in map_host_to_ip and map_host_to_ip[host][0]:
             return map_host_to_ip[host][0]
-    except Exception, e:
-        xencert_print("Failed to find IP address for hbtl: %s, map_host_to_ip: %s, exception: %s" % (hbtl, map_host_to_ip, str(e)))
+    except Exception as e:
+        xencert_print("Failed to find IP address for hbtl: %s, map_host_to_ip: %s, exception: %s" % (
+        hbtl, map_host_to_ip, str(e)))
         raise Exception("No IP for hbtl %s in %s" % (hbtl, map_host_to_ip))
+
 
 def parse_probe_xml_data(xmlstr):
     xmlstr = xmlstr.lstrip()
@@ -167,172 +180,181 @@ def parse_probe_xml_data(xmlstr):
     xencert_print("Got the probe xml as: %s" % xmlstr)
     return xml.dom.minidom.parseString(xmlstr)
 
-def tgt_childnodes_value(tgt):
-	iqn = None
-	portal = None
-	for node in tgt.childNodes:
-		if node.nodeName == 'TargetIQN':
-			iqn = node.firstChild.nodeValue
 
-		if node.nodeName == 'IPAddress':
-			portal = node.firstChild.nodeValue
-	return (iqn, portal)
+def tgt_childnodes_value(tgt):
+    iqn = None
+    portal = None
+    for node in tgt.childNodes:
+        if node.nodeName == 'TargetIQN':
+            iqn = node.firstChild.nodeValue
+
+        if node.nodeName == 'IPAddress':
+            portal = node.firstChild.nodeValue
+    return (iqn, portal)
+
 
 def create_xml_string(items):
-	xmlstr = ''
-	for i in range(3, len(items)):
-		xmlstr += items[i]
-		xmlstr += ','
-	return xmlstr
+    xmlstr = ''
+    for i in range(3, len(items)):
+        xmlstr += items[i]
+        xmlstr += ','
+    return xmlstr
 
-# The returned structure are a list of portals, and a list of SCSIIds for the specified IQN. 
-def get_list_portal_scsi_id_for_iqn(session, server, target_iqn, chapuser  = None, chappassword = None):
+
+# The returned structure are a list of portals, and a list of SCSIIds for the specified IQN.
+def get_list_portal_scsi_id_for_iqn(session, server, target_iqn, chapuser=None, chappassword=None):
     try:
-	list_portal = []
-	list_scsi_id= []
-	device_config = {}
-	device_config['target'] = server
-	if chapuser  is not None and chappassword is not None:
-	    device_config['chapuser'] = chapuser 
-	    device_config['chappassword'] = chappassword
+        list_portal = []
+        list_scsi_id = []
+        device_config = {}
+        device_config['target'] = server
+        if chapuser is not None and chappassword is not None:
+            device_config['chapuser'] = chapuser
+            device_config['chappassword'] = chappassword
 
-	try:
-	    session.xenapi.SR.probe(util.get_localhost_uuid(session), device_config, 'lvmoiscsi')
-	except Exception, e:
-	    xencert_print("Got the probe data as: %s" % str(e))
+        try:
+            session.xenapi.SR.probe(util.get_localhost_ref(session), device_config, 'lvmoiscsi')
+        except Exception as e:
+            xencert_print("Got the probe data as: %s" % str(e))
+            probe_data = e
 
-	# Now extract the IQN list from this data.
-	try:
-	    # the target may not return any IQNs
-	    # so prepare for it
-	    items = str(e).split(',')
-	    xmlstr = create_xml_string(items)
+        # Now extract the IQN list from this data.
+        try:
+            # the target may not return any IQNs
+            # so prepare for it
+            items = str(probe_data).split(',')
+            xmlstr = create_xml_string(items)
 
-	    tgt_list = parse_probe_xml_data(xmlstr.strip(',')).getElementsByTagName("TGT")
-	    for tgt in tgt_list:
-		(iqn, portal) = tgt_childnodes_value(tgt)
+            tgt_list = parse_probe_xml_data(xmlstr.strip(',')).getElementsByTagName("TGT")
+            for tgt in tgt_list:
+                (iqn, portal) = tgt_childnodes_value(tgt)
 
-		xencert_print("Got iqn: %s, portal: %s" % (iqn, portal))
-		xencert_print("The target IQN is: %s" % target_iqn)
-		if iqn == '*':
-		    continue
-		for targetiqn in target_iqn.split(','):
-			if iqn == targetiqn:
-				list_portal.append(portal)
-				break
+                xencert_print("Got iqn: %s, portal: %s" % (iqn, portal))
+                xencert_print("The target IQN is: %s" % target_iqn)
+                if iqn == '*':
+                    continue
+                for targetiqn in target_iqn.split(','):
+                    if iqn == targetiqn:
+                        list_portal.append(portal)
+                        break
 
-	    xencert_print("The portal list at the end of the iteration is: %s" % list_portal)
-	except Exception, e:
-	    raise Exception("The target %s did not return any IQNs on probe. Exception: %s" % (server, str(e)))
+            xencert_print("The portal list at the end of the iteration is: %s" % list_portal)
+        except Exception as e:
+            raise Exception("The target %s did not return any IQNs on probe. Exception: %s" % (server, str(e)))
 
-	#  Now probe again with each IQN in turn.
-	for iqn in target_iqn.split(','):
-	    try:
-		device_config['targetIQN'] = iqn
-		device_config_tmp = get_config_with_hidden_password(device_config, 'iscsi')
-		xencert_print("Probing with device config: %s" % device_config_tmp)
-		session.xenapi.SR.probe(util.get_localhost_uuid(session), device_config, 'lvmoiscsi')
-	    except Exception, e:
-		xencert_print("Got the probe data as: %s" % str(e))
-    
-	    # Now extract the SCSI ID list from this data.
-	    try:
-		# If there are no LUNs exposed, the probe data can be an empty xml
-		# so be prepared for it
-		items = str(e).split(',')
-		xmlstr = create_xml_string(items)
-		scsi_id_obj_list = parse_probe_xml_data(xmlstr.strip(',')).getElementsByTagName("SCSIid")
-		for scsi_id_obj in scsi_id_obj_list:
-			list_scsi_id.append(scsi_id_obj.firstChild.nodeValue)
-			
-	    except Exception, e:
-		xencert_print("The IQN: %s did not return any SCSI IDs on probe. Exception: %s" % (iqn, str(e)))
-		    
-	    xencert_print("Got the SCSIId list for iqn %s as %s" % (iqn, list_scsi_id))
-	    
-	     
-    except Exception, e: 
-	xencert_print("There was an exception in get_list_portal_scsi_id_for_iqn. Exception: %s" % str(e))
-	raise Exception(str(e))
-	
-    
-    xencert_print("get_list_portal_scsi_id_for_iqn - returning PortalList: %s." % list_portal)  
-    xencert_print("get_list_portal_scsi_id_for_iqn - returning SCSIIdList: %s." % list_scsi_id)  
+        #  Now probe again with each IQN in turn.
+        for iqn in target_iqn.split(','):
+            try:
+                device_config['targetIQN'] = iqn
+                device_config_tmp = get_config_with_hidden_password(device_config, 'iscsi')
+                xencert_print("Probing with device config: %s" % device_config_tmp)
+                session.xenapi.SR.probe(util.get_localhost_ref(session), device_config, 'lvmoiscsi')
+            except Exception as e:
+                xencert_print("Got the probe data as: %s" % str(e))
+                probe_data = e
+
+            # Now extract the SCSI ID list from this data.
+            try:
+                # If there are no LUNs exposed, the probe data can be an empty xml
+                # so be prepared for it
+                items = str(probe_data).split(',')
+                xmlstr = create_xml_string(items)
+                scsi_id_obj_list = parse_probe_xml_data(xmlstr.strip(',')).getElementsByTagName("SCSIid")
+                for scsi_id_obj in scsi_id_obj_list:
+                    list_scsi_id.append(scsi_id_obj.firstChild.nodeValue)
+
+            except Exception as e:
+                xencert_print("The IQN: %s did not return any SCSI IDs on probe. Exception: %s" % (iqn, str(e)))
+
+            xencert_print("Got the SCSIId list for iqn %s as %s" % (iqn, list_scsi_id))
+
+
+    except Exception as e:
+        xencert_print("There was an exception in get_list_portal_scsi_id_for_iqn. Exception: %s" % str(e))
+        raise Exception(str(e))
+
+    xencert_print("get_list_portal_scsi_id_for_iqn - returning PortalList: %s." % list_portal)
+    xencert_print("get_list_portal_scsi_id_for_iqn - returning SCSIIdList: %s." % list_scsi_id)
     return (list_portal, list_scsi_id)
+
 
 def extract_xml_from_exception(e):
     return ','.join(str(e).split(',')[3:])
 
+
 def tgt_list_function(tgt_list, hba_filter, list):
-	for tgt in tgt_list:
-		map = {}
-		for node in tgt.childNodes:
-			map[node.nodeName] = node.firstChild.nodeValue
-		if len(hba_filter) != 0:
-			if hba_filter.has_key(map['host']):
-				list.append(map)
-		else:
-			list.append(map)
-	return list
+    for tgt in tgt_list:
+        map = {}
+        for node in tgt.childNodes:
+            map[node.nodeName] = node.firstChild.nodeValue
+        if len(hba_filter) != 0:
+            if map['host'] in hba_filter:
+                list.append(map)
+        else:
+            list.append(map)
+    return list
+
 
 def bd_list_function(bd_list, hba_filter, scsi_id_list):
-	for bd in bd_list:
-		for node in bd.childNodes:
-			if node.nodeName == 'SCSIid':
-				scsi_id = node.firstChild.nodeValue
-			elif node.nodeName == 'adapter':
-				adapter = ''.join(["host", node.firstChild.nodeValue])
+    for bd in bd_list:
+        for node in bd.childNodes:
+            if node.nodeName == 'SCSIid':
+                scsi_id = node.firstChild.nodeValue
+            elif node.nodeName == 'adapter':
+                adapter = ''.join(["host", node.firstChild.nodeValue])
 
-		if len(hba_filter) != 0:
-			if hba_filter.has_key(adapter):
-				scsi_id_list.append(scsi_id)
-		else:
-			scsi_id_list.append(scsi_id)
-	return scsi_id_list
+        if len(hba_filter) != 0:
+            if adapter in hba_filter:
+                scsi_id_list.append(scsi_id)
+        else:
+            scsi_id_list.append(scsi_id)
+    return scsi_id_list
 
-# The returned structure are a list of portals, and a list of SCSIIds for the specified IQN. 
+
+# The returned structure are a list of portals, and a list of SCSIIds for the specified IQN.
 def get_hba_information(session, storage_conf, sr_type="lvmohba"):
     try:
-	retval = True
-	list = []
-	scsi_id_list = []
-	device_config = {}
-	hba_filter = {}
+        retval = True
+        list = []
+        scsi_id_list = []
+        device_config = {}
+        hba_filter = {}
 
-	# Generate a map of the HBAs that the user want to test against.
-	if storage_conf['adapters'] is not None:
-	    for hba in storage_conf['adapters'].split(','):
-			hba_filter[hba] = 1
-	
-	try:
-	    session.xenapi.SR.probe(util.get_localhost_uuid(session), device_config, sr_type)
-	except Exception, e:
-	    xencert_print("Got the probe data as: %s " % str(e))
-	    # Now extract the HBA information from this data.
-	    try:
-		# the target may not return any IQNs
-		# so prepare for it
-		xmlstr = extract_xml_from_exception(e)
-		dom = parse_probe_xml_data(xmlstr)
-		tgt_list = dom.getElementsByTagName("Adapter")
-		list = tgt_list_function(tgt_list, hba_filter, list)
-		
-		bd_list = dom.getElementsByTagName("BlockDevice")
-		scsi_id_list = bd_list_function(bd_list, hba_filter, scsi_id_list)
-	
-		xencert_print("The HBA information list being returned is: %s" % list)
-	    except Exception, e:
-		xencert_print("Failed to parse %s probe xml. Exception: %s" % (sr_type, str(e)))
-	     
-    except Exception, e: 
-	xencert_print("There was an exception in get_hba_information: %s." % str(e))
-	printout("Exception: %s" % str(e))
-	retval = False
-    
-    xencert_print("get_hba_information - returning adapter list: %s and scsi id list: %s." % (list, scsi_id_list))  
+        # Generate a map of the HBAs that the user want to test against.
+        if storage_conf['adapters'] is not None:
+            for hba in storage_conf['adapters'].split(','):
+                hba_filter[hba] = 1
+
+        try:
+            session.xenapi.SR.probe(util.get_localhost_ref(session), device_config, sr_type)
+        except Exception as e:
+            xencert_print("Got the probe data as: %s " % str(e))
+            # Now extract the HBA information from this data.
+            try:
+                # the target may not return any IQNs
+                # so prepare for it
+                xmlstr = extract_xml_from_exception(e)
+                dom = parse_probe_xml_data(xmlstr)
+                tgt_list = dom.getElementsByTagName("Adapter")
+                list = tgt_list_function(tgt_list, hba_filter, list)
+
+                bd_list = dom.getElementsByTagName("BlockDevice")
+                scsi_id_list = bd_list_function(bd_list, hba_filter, scsi_id_list)
+
+                xencert_print("The HBA information list being returned is: %s" % list)
+            except Exception as e:
+                xencert_print("Failed to parse %s probe xml. Exception: %s" % (sr_type, str(e)))
+
+    except Exception as e:
+        xencert_print("There was an exception in get_hba_information: %s." % str(e))
+        printout("Exception: %s" % str(e))
+        retval = False
+
+    xencert_print("get_hba_information - returning adapter list: %s and scsi id list: %s." % (list, scsi_id_list))
     return (retval, list, scsi_id_list)
 
-# the following details from the file name, put it into a list and return the list. 
+
+# the following details from the file name, put it into a list and return the list.
 def get_lun_information(id):
     retval = True
     list_lun_info = []
@@ -349,132 +371,135 @@ def get_lun_information(id):
                 map['id'] = basename.split('-')[1].split(':')[3]
                 map['device'] = os.path.realpath(file)
                 list_lun_info.append(map)
-    except Exception, e:
+    except Exception as e:
         printout("Failed to get lun information for host id: %s, error: %s" % (id, str(e)))
         retval = False
 
     return (retval, list_lun_info)
-	    
+
+
 def plug_and_unplug_pbds(session, sr_ref, count):
     print_on_same_line("      Unplugging and plugging PBDs over %d iterations. Iteration number: " % count)
     try:
-	checkpoint = 0;
-	for j in range(0, count):
-	    print_on_same_line(str(j))
-	    print_on_same_line('..')
-	    pbds = session.xenapi.SR.get_PBDs(sr_ref)
-	    xencert_print("Got the list of pbds for the sr %s as %s" % (sr_ref, pbds))
-	    for pbd in pbds:
-		xencert_print("Looking at PBD: %s" % pbd)
-		session.xenapi.PBD.unplug(pbd)
-		session.xenapi.PBD.plug(pbd)
-	    checkpoint += 1
+        checkpoint = 0;
+        for j in range(0, count):
+            print_on_same_line(str(j))
+            print_on_same_line('..')
+            pbds = session.xenapi.SR.get_PBDs(sr_ref)
+            xencert_print("Got the list of pbds for the sr %s as %s" % (sr_ref, pbds))
+            for pbd in pbds:
+                xencert_print("Looking at PBD: %s" % pbd)
+                session.xenapi.PBD.unplug(pbd)
+                session.xenapi.PBD.plug(pbd)
+            checkpoint += 1
 
-	print_on_same_line('\b\b  ')
-	print_on_same_line('\n')
-    except Exception, e:
-	printout("     Exception: %s" % str(e))
-	display_operation_status(False)
-	
+        print_on_same_line('\b\b  ')
+        print_on_same_line('\n')
+    except Exception as e:
+        printout("     Exception: %s" % str(e))
+        display_operation_status(False)
+
     display_operation_status(True)
     return checkpoint
 
-def destroy_sr(session, sr_ref):	
-    try:
-	# First get the PBDs
-	pbds = session.xenapi.SR.get_PBDs(sr_ref)
-	xencert_print("Got the list of pbds for the sr %s as %s" % (sr_ref, pbds))
-	xencert_print(" - Now unplug PBDs for the SR.")
-	for pbd in pbds:
-	    xencert_print("Unplugging PBD: %s" % pbd)
-	    session.xenapi.PBD.unplug(pbd)	    
 
-	xencert_print("Now destroying the SR: %s" % sr_ref)
-	session.xenapi.SR.destroy(sr_ref)
-	display_operation_status(True)
-	
-    except Exception, e:
-	display_operation_status(False)
-	raise Exception(str(e))
-    
+def destroy_sr(session, sr_ref):
+    try:
+        # First get the PBDs
+        pbds = session.xenapi.SR.get_PBDs(sr_ref)
+        xencert_print("Got the list of pbds for the sr %s as %s" % (sr_ref, pbds))
+        xencert_print(" - Now unplug PBDs for the SR.")
+        for pbd in pbds:
+            xencert_print("Unplugging PBD: %s" % pbd)
+            session.xenapi.PBD.unplug(pbd)
+
+        xencert_print("Now destroying the SR: %s" % sr_ref)
+        session.xenapi.SR.destroy(sr_ref)
+        display_operation_status(True)
+
+    except Exception as e:
+        display_operation_status(False)
+        raise Exception(str(e))
+
+
 def create_max_size_vdi_and_vbd(session, sr_ref):
     vdi_ref = None
     vbd_ref = None
     retval = True
     vdi_size = 0
-    
+
     try:
-	try:
-	    printout("   Create a VDI on the SR of the maximum available size.")
-	    session.xenapi.SR.scan(sr_ref)
-	    psize = session.xenapi.SR.get_physical_size(sr_ref)
-	    putil = session.xenapi.SR.get_physical_utilisation(sr_ref)
-	    vdi_size_act = actual_sr_free_space(int(psize) - int(putil))
-	    vdi_size = str(min(1073741824, vdi_size_act)) # 1073741824 is by wkc hack (1GB)
-	    xencert_print("Actual SR free space: %d, and used VDI size %s" % (vdi_size_act, vdi_size))
+        try:
+            printout("   Create a VDI on the SR of the maximum available size.")
+            session.xenapi.SR.scan(sr_ref)
+            psize = session.xenapi.SR.get_physical_size(sr_ref)
+            putil = session.xenapi.SR.get_physical_utilisation(sr_ref)
+            vdi_size_act = actual_sr_free_space(int(psize) - int(putil))
+            vdi_size = str(min(1073741824, vdi_size_act))  # 1073741824 is by wkc hack (1GB)
+            xencert_print("Actual SR free space: %d, and used VDI size %s" % (vdi_size_act, vdi_size))
 
-	    # Populate VDI args
-	    args={}
-	    args['name_label'] = 'XenCertTestVDI'
-	    args['SR'] = sr_ref
-	    args['name_description'] = ''
-	    args['virtual_size'] = vdi_size
-	    args['type'] = 'user'
-	    args['sharable'] = False
-	    args['read_only'] = False
-	    args['other_config'] = {}
-	    args['sm_config'] = {}
-	    args['xenstore_data'] = {}
-	    args['tags'] = []            
-	    xencert_print("The VDI create parameters are %s" % args)
-	    vdi_ref = session.xenapi.VDI.create(args)
-	    xencert_print("Created new VDI %s" % vdi_ref)
-	    display_operation_status(True)
-	except Exception, e:	    
-	    display_operation_status(False)
-	    raise Exception(str(e))
+            # Populate VDI args
+            args = {}
+            args['name_label'] = 'XenCertTestVDI'
+            args['SR'] = sr_ref
+            args['name_description'] = ''
+            args['virtual_size'] = vdi_size
+            args['type'] = 'user'
+            args['sharable'] = False
+            args['read_only'] = False
+            args['other_config'] = {}
+            args['sm_config'] = {}
+            args['xenstore_data'] = {}
+            args['tags'] = []
+            xencert_print("The VDI create parameters are %s" % args)
+            vdi_ref = session.xenapi.VDI.create(args)
+            xencert_print("Created new VDI %s" % vdi_ref)
+            display_operation_status(True)
+        except Exception as e:
+            display_operation_status(False)
+            raise Exception(str(e))
 
-	printout("   Create a VBD on this VDI and plug it into dom0")
-	try:
-	    vm_uuid = _get_localhost_uuid()
-	    xencert_print("Got vm_uuid as %s" % vm_uuid)
-	    vm_ref = session.xenapi.VM.get_by_uuid(vm_uuid)
-	    xencert_print("Got vm_ref as %s" % vm_ref)
+        printout("   Create a VBD on this VDI and plug it into dom0")
+        try:
+            vm_uuid = _get_localhost_uuid()
+            xencert_print("Got vm_uuid as %s" % vm_uuid)
+            vm_ref = session.xenapi.VM.get_by_uuid(vm_uuid)
+            xencert_print("Got vm_ref as %s" % vm_ref)
 
-	
-	    freedevs = session.xenapi.VM.get_allowed_VBD_devices(vm_ref)
-	    xencert_print("Got free devs as %s" % freedevs)
-	    if not len(freedevs):		
-		raise Exception("No free devs found for VM: %s!" % vm_ref)
-	    xencert_print("Allowed devs: %s (using %s)" % (freedevs, freedevs[0]))
+            freedevs = session.xenapi.VM.get_allowed_VBD_devices(vm_ref)
+            xencert_print("Got free devs as %s" % freedevs)
+            if not len(freedevs):
+                raise Exception("No free devs found for VM: %s!" % vm_ref)
+            xencert_print("Allowed devs: %s (using %s)" % (freedevs, freedevs[0]))
 
-	    # Populate VBD args
-	    args={}
-	    args['VM'] = vm_ref
-	    args['VDI'] = vdi_ref
-	    args['userdevice'] = freedevs[0]
-	    args['bootable'] = False
-	    args['mode'] = 'RW'
-	    args['type'] = 'Disk'
-	    args['unpluggable'] = True 
-	    args['empty'] = False
-	    args['other_config'] = {}
-	    args['qos_algorithm_type'] = ''
-	    args['qos_algorithm_params'] = {}
-	    xencert_print("The VBD create parameters are %s" % args)
-	    vbd_ref = session.xenapi.VBD.create(args)
-	    xencert_print("Created new VBD %s" % vbd_ref)
-	    session.xenapi.VBD.plug(vbd_ref)
+            # Populate VBD args
+            args = {}
+            args['VM'] = vm_ref
+            args['VDI'] = vdi_ref
+            args['userdevice'] = freedevs[0]
+            args['bootable'] = False
+            args['mode'] = 'RW'
+            args['type'] = 'Disk'
+            args['unpluggable'] = True
+            args['empty'] = False
+            args['other_config'] = {}
+            args['qos_algorithm_type'] = ''
+            args['qos_algorithm_params'] = {}
+            xencert_print("The VBD create parameters are %s" % args)
+            vbd_ref = session.xenapi.VBD.create(args)
+            xencert_print("Created new VBD %s" % vbd_ref)
+            session.xenapi.VBD.plug(vbd_ref)
 
-	    display_operation_status(True)
-	except Exception, e:
-	    display_operation_status(False)
-	    raise Exception(str(e))
-    except Exception, e:
-	printout("   Exception creating VDI and VBD, and plugging it into Dom-0 for SR: %s" % sr_ref)
-	raise Exception(str(e))
-    
+            display_operation_status(True)
+        except Exception as e:
+            display_operation_status(False)
+            raise Exception(str(e))
+    except Exception as e:
+        printout("   Exception creating VDI and VBD, and plugging it into Dom-0 for SR: %s" % sr_ref)
+        raise Exception(str(e))
+
     return (retval, vdi_ref, vbd_ref, vdi_size)
+
 
 def attach_vdi(session, vdi_ref, vm_ref):
     vbd_ref = None
@@ -514,6 +539,7 @@ def attach_vdi(session, vdi_ref, vm_ref):
         printout("   Exception Creating VBD and plugging it into VM: %s" % vm_ref)
         raise
 
+
 def detach_vdi(session, vbd_ref):
     try:
         session.xenapi.VBD.unplug(vbd_ref)
@@ -523,101 +549,109 @@ def detach_vdi(session, vbd_ref):
     except Exception as e:
         raise Exception('VDI detach failed. Error: %s' % e)
 
+
 def find_time_to_write_data(devicename, size_in_mib):
     dd_out_file = 'of=' + devicename
-    xencert_print("Now copy %dMiB data from /dev/zero to this device and record the time taken to copy it." % size_in_mib)
+    xencert_print(
+        "Now copy %dMiB data from /dev/zero to this device and record the time taken to copy it." % size_in_mib)
     cmd = ['dd', 'if=/dev/zero', dd_out_file, 'bs=4096', 'count=%d' % (size_in_mib * 256)]
     try:
-	(rc, stdout, stderr) = util.doexec(cmd,'')
-	list = stderr.split('\n')
-	time_taken = list[2].split(',')[1]
-	data_copy_time = int(float(time_taken.split()[0]))
-	xencert_print("The IO test returned rc: %s stdout: %s, stderr: %s" % (rc, stdout, stderr))
-	xencert_print("Time taken to copy %dMiB to the device %s is %d" % (size_in_mib, devicename, data_copy_time))
-	return data_copy_time
-    except Exception, e:
-	raise Exception(str(e))
+        (rc, stdout, stderr) = util.doexec(cmd, '')
+        list = stderr.split('\n')
+        time_taken = list[2].split(',')[1]
+        data_copy_time = int(float(time_taken.split()[0]))
+        xencert_print("The IO test returned rc: %s stdout: %s, stderr: %s" % (rc, stdout, stderr))
+        xencert_print("Time taken to copy %dMiB to the device %s is %d" % (size_in_mib, devicename, data_copy_time))
+        return data_copy_time
+    except Exception as e:
+        raise Exception(str(e))
+
 
 def perform_sr_control_path_tests(session, sr_ref):
     e = None
     try:
-	checkpoint = 0
-	vdi_ref = None
-	vbd_ref = None
-	retval = True
+        checkpoint = 0
+        vdi_ref = None
+        vbd_ref = None
+        retval = True
 
-	(retval, vdi_ref, vbd_ref, vdi_size) = create_max_size_vdi_and_vbd(session, sr_ref)
-	if not retval:
-	    raise Exception("Failed to create max size VDI and VBD.")
+        (retval, vdi_ref, vbd_ref, vdi_size) = create_max_size_vdi_and_vbd(session, sr_ref)
+        if not retval:
+            raise Exception("Failed to create max size VDI and VBD.")
 
-	checkpoint += 2
-	# Now try to zero out the entire disk
-	printout("   Now attempt to write the maximum number of bytes on this newly plugged device.")
+        checkpoint += 2
+        # Now try to zero out the entire disk
+        printout("   Now attempt to write the maximum number of bytes on this newly plugged device.")
 
-	devicename = dev_path + session.xenapi.VBD.get_device(vbd_ref)
-	xencert_print("First finding out the time taken to write 1GB on the device.")
-	time_for_512mib_sec = find_time_to_write_data(devicename, 512)
-	time_to_write = int((float(vdi_size)/(1024*1024*1024)) * (time_for_512mib_sec * 2))
+        devicename = dev_path + session.xenapi.VBD.get_device(vbd_ref)
+        xencert_print("First finding out the time taken to write 1GB on the device.")
+        time_for_512mib_sec = find_time_to_write_data(devicename, 512)
+        time_to_write = int((float(vdi_size) / (1024 * 1024 * 1024)) * (time_for_512mib_sec * 2))
 
-	if time_to_write > timeLimitControlInSec:
-	    raise Exception("Writing through this device will take more than %s hours, please use a source upto %s GiB in size." %
-			    (timeLimitControlInSec/3600, timeLimitControlInSec/(time_for_512mib_sec * 2)))
-	minutes = 0
-	hrs = 0
-	if time_to_write > 60:
-	    minutes = int(time_to_write/60)
-	    time_to_write = int(time_to_write - (minutes * 60))
-	    if minutes > 60:
-		hrs = int(minutes/60)
-		minutes = int(minutes - (hrs * 60))
+        if time_to_write > timeLimitControlInSec:
+            raise Exception(
+                "Writing through this device will take more than %s hours, please use a source upto %s GiB in size." %
+                (timeLimitControlInSec / 3600, timeLimitControlInSec / (time_for_512mib_sec * 2)))
+        minutes = 0
+        hrs = 0
+        if time_to_write > 60:
+            minutes = int(time_to_write / 60)
+            time_to_write = int(time_to_write - (minutes * 60))
+            if minutes > 60:
+                hrs = int(minutes / 60)
+                minutes = int(minutes - (hrs * 60))
 
-	printout("   START TIME: %s " % (time.asctime(time.localtime())))
+        printout("   START TIME: %s " % (time.asctime(time.localtime())))
 
-	if hrs > 0:
-	    printout("   APPROXIMATE RUN TIME: %s hours, %s minutes, %s seconds." % (hrs, minutes, time_to_write))
-	elif minutes > 0:
-	    printout("   APPROXIMATE RUN TIME: %s minutes, %s seconds." % (minutes, time_to_write))
-	elif time_to_write > 0:
-	    printout("   APPROXIMATE RUN TIME: %s seconds." % (time_to_write))
+        if hrs > 0:
+            printout("   APPROXIMATE RUN TIME: %s hours, %s minutes, %s seconds." % (hrs, minutes, time_to_write))
+        elif minutes > 0:
+            printout("   APPROXIMATE RUN TIME: %s minutes, %s seconds." % (minutes, time_to_write))
+        elif time_to_write > 0:
+            printout("   APPROXIMATE RUN TIME: %s seconds." % (time_to_write))
 
-	if not util.zeroOut(devicename, 0, int(vdi_size)):
-	    raise Exception("   - Could not write through the allocated disk space on test disk, please check the log for the exception details.")
-	    
-	printout("   END TIME: %s " % (time.asctime(time.localtime())))
-	display_operation_status(True)
+        if not util.zeroOut(devicename, 0, int(vdi_size)):
+            raise Exception(
+                "   - Could not write through the allocated disk space on test disk, please check the log for the exception details.")
 
-	checkpoint += 1
-	
-    except Exception, e:
-	printout("There was an exception performing control path stress tests. Exception: %s" % str(e))
-	retval = False
-    
+        printout("   END TIME: %s " % (time.asctime(time.localtime())))
+        display_operation_status(True)
+
+        checkpoint += 1
+
+    except Exception as e:
+        printout("There was an exception performing control path stress tests. Exception: %s" % str(e))
+        retval = False
+
     try:
-	# Try cleaning up here
-	if vbd_ref is not None:
-	    session.xenapi.VBD.unplug(vbd_ref)
-	    xencert_print("Unplugged VBD %s" % vbd_ref)
-	    session.xenapi.VBD.destroy(vbd_ref)
-	    xencert_print("Destroyed VBD %s" % vbd_ref)
+        # Try cleaning up here
+        if vbd_ref is not None:
+            session.xenapi.VBD.unplug(vbd_ref)
+            xencert_print("Unplugged VBD %s" % vbd_ref)
+            session.xenapi.VBD.destroy(vbd_ref)
+            xencert_print("Destroyed VBD %s" % vbd_ref)
 
-	if vdi_ref is not None:
-	    session.xenapi.VDI.destroy(vdi_ref)
-	    xencert_print("Destroyed VDI %s" % vdi_ref)
-    except Exception, e:
-	printout("- Could not cleanup the objects created during testing, please destroy the vbd %s and vdi %s manually." % (vbd_ref, vdi_ref))
-	printout("  Exception: %s" % str(e))
-	
+        if vdi_ref is not None:
+            session.xenapi.VDI.destroy(vdi_ref)
+            xencert_print("Destroyed VDI %s" % vdi_ref)
+    except Exception as e:
+        printout(
+            "- Could not cleanup the objects created during testing, please destroy the vbd %s and vdi %s manually." % (
+            vbd_ref, vdi_ref))
+        printout("  Exception: %s" % str(e))
+
     return (checkpoint, retval)
+
 
 def get_lun_scsiid_devicename_mapping(target_iqn, portal):
     iscsilib.refresh_luns(target_iqn, portal)
-    lun_to_scsi_id={}
-    path = os.path.join("/dev/iscsi",target_iqn,portal)
+    lun_to_scsi_id = {}
+    path = os.path.join("/dev/iscsi", target_iqn, portal)
     try:
         for file in util.listdir(path):
             real_path = os.path.realpath(os.path.join(path, file))
-            if file.find("LUN") == 0 and file.find("_") == -1:		
-                lun=file.replace("LUN","")
+            if file.find("LUN") == 0 and file.find("_") == -1:
+                lun = file.replace("LUN", "")
                 scsi_id = scsiutil.getSCSIid(os.path.join(path, file))
                 lun_to_scsi_id[lun] = (scsi_id, real_path)
 
@@ -625,6 +659,7 @@ def get_lun_scsiid_devicename_mapping(target_iqn, portal):
     except util.CommandException:
         xencert_print("Failed to find any LUNs for IQN: %s and portal: %s" % (target_iqn, portal))
         return {}
+
 
 def parse_multipathd_config(lines):
     """
@@ -644,13 +679,13 @@ def parse_multipathd_config(lines):
         ...
     """
     dict = {}
-    re_section_begin = re.compile(r'^([^\t ]+) {\n$')    # NOSONAR
+    re_section_begin = re.compile(r'^([^\t ]+) {\n$')  # NOSONAR
     re_section_end = re.compile(r'^}\n$')
-    re_section_attr = re.compile(r'^\t([^\t ]+) (.*[^{])\n$')    # NOSONAR
-    re_subsection_begin = re.compile(r'^\t([^\t ]+) {\n$')    # NOSONAR
+    re_section_attr = re.compile(r'^\t([^\t ]+) (.*[^{])\n$')  # NOSONAR
+    re_subsection_begin = re.compile(r'^\t([^\t ]+) {\n$')  # NOSONAR
     re_subsection_end = re.compile(r'^\t}\n$')
-    re_subsection_attr = re.compile(r'^\t\t([^\t ]+) (.*[^{])\n$')    # NOSONAR
-    
+    re_subsection_attr = re.compile(r'^\t\t([^\t ]+) (.*[^{])\n$')  # NOSONAR
+
     for line in lines:
         m = re_section_begin.match(line)
         if m:
@@ -659,8 +694,8 @@ def parse_multipathd_config(lines):
             continue
         m = re_section_attr.match(line)
         if m:
-            attribute,value = m.group(1),m.group(2)
-            section_value.append((attribute,value))
+            attribute, value = m.group(1), m.group(2)
+            section_value.append((attribute, value))
             continue
         m = re_subsection_begin.match(line)
         if m:
@@ -669,46 +704,50 @@ def parse_multipathd_config(lines):
             continue
         m = re_subsection_attr.match(line)
         if m:
-            attribute,value = m.group(1),m.group(2)
-            subsection_value.append((attribute,value))
+            attribute, value = m.group(1), m.group(2)
+            subsection_value.append((attribute, value))
             continue
         m = re_subsection_end.match(line)
         if m:
-            section_value.append((subsection,subsection_value))
+            section_value.append((subsection, subsection_value))
             continue
         m = re_section_end.match(line)
         if m:
             dict[section] = section_value
-       # ignore any other line
-       
+    # ignore any other line
+
     return dict
+
 
 def parse_config(vendor, product):
     device_config = None
     try:
-        cmd="show config"
+        cmd = "show config"
         xencert_print("mpath cmd: %s" % cmd)
-        (rc,stdout,stderr) = util.doexec(mpath_cli.mpathcmd,cmd)
+        (rc, stdout, stderr) = util.doexec(mpath_cli.mpathcmd, cmd)
         xencert_print("mpath output: %s" % stdout)
-        d = parse_multipathd_config([line+'\n' for line in stdout.split('\n')])
+        d = parse_multipathd_config([line + '\n' for line in stdout.split('\n')])
         xencert_print("mpath config to dict: %s" % d)
 
-        for _,device_value in d["devices"]:
+        for _, device_value in d["devices"]:
             xencert_print("device attributes: %s" % device_value)
             attr_map = dict(device_value)
             if 'vendor' not in attr_map or 'product' not in attr_map:
-                xencert_print("warning: skip the device attributes because can not find mandatory key vendor or product")
+                xencert_print(
+                    "warning: skip the device attributes because can not find mandatory key vendor or product")
                 continue
             re_vendor = re.compile(attr_map['vendor'].strip('"'))
             re_product = re.compile(attr_map['product'].strip('"'))
             if (re_vendor.search(vendor) and re_product.search(product)):
                 xencert_print("matched vendor and product")
-                device_config = dict(d["defaults"] + attr_map.items())
+                device_config = dict(d["defaults"] + list(attr_map.items()))
                 break
-    except Exception, e:
-        xencert_print("Failed to get multipath config for vendor: %s and product: %s. Exception: %s" % (vendor, product, str(e)))
+    except Exception as e:
+        xencert_print(
+            "Failed to get multipath config for vendor: %s and product: %s. Exception: %s" % (vendor, product, str(e)))
 
     return (device_config != None, device_config)
+
 
 def parse_xml_config(file):
     configuration = {}
@@ -717,22 +756,23 @@ def parse_xml_config(file):
     configuration['growsize'] = '4'
 
     config_info = xml.dom.minidom.parse(file)
-    required = ['adapterid','ssid', 'spid', 'username', 'password', 'target']
+    required = ['adapterid', 'ssid', 'spid', 'username', 'password', 'target']
     optional = ['port', 'protocol', 'chapuser', 'chappass', 'lunsize', 'growsize']
     for val in required + optional:
-       try:
-           configuration[val] = str(config_info.getElementsByTagName(val)[0].firstChild.nodeValue)
-       except:
-           if val in required:
-               print("parse exception on REQUIRED ISL option: %s" % val)
-               raise
-           else:
-               print("parse exception on OPTIONAL ISL option: %s" % val)
+        try:
+            configuration[val] = str(config_info.getElementsByTagName(val)[0].firstChild.nodeValue)
+        except:
+            if val in required:
+                print(("parse exception on REQUIRED ISL option: %s" % val))
+                raise
+            else:
+                print(("parse exception on OPTIONAL ISL option: %s" % val))
     return configuration
 
-#Returns a list of following tuples for the SCSI Id given
-#(hbtl, Path dm status, Path status) 
-def get_path_status(scsi_id, only_active = False):
+
+# Returns a list of following tuples for the SCSI Id given
+# (hbtl, Path dm status, Path status)
+def get_path_status(scsi_id, only_active=False):
     list_paths = []
     list = []
     retval = True
@@ -740,15 +780,15 @@ def get_path_status(scsi_id, only_active = False):
         lines = mpath_cli.get_topology(scsi_id)
         list_paths = []
         for line in lines:
-            m=mpath_cli.regex.search(line)
-            if(m):
+            m = mpath_cli.regex.search(line)
+            if (m):
                 list_paths.append(line)
 
         xencert_print("list_paths returned: %s" % list_paths)
 
         # Extract hbtl, dm and path status from the multipath topology output
         # e.g. "| |- 0:0:0:0 sda 8:0   active ready running"
-        pat = re.compile(r'(\d+:\d+:\d+:\d+.*)$')    # NOSONAR
+        pat = re.compile(r'(\d+:\d+:\d+:\d+.*)$')  # NOSONAR
 
         for node in list_paths:
             xencert_print("Looking at node: %s" % node)
@@ -771,11 +811,13 @@ def get_path_status(scsi_id, only_active = False):
                 list.append((hbtl, dm_status, path_status))
 
         xencert_print("Returning list: %s" % list)
-    except Exception, e:
-        xencert_print("There was some exception in getting path status for scsi id: %s. Exception: %s" % (scsi_id, str(e)))
+    except Exception as e:
+        xencert_print(
+            "There was some exception in getting path status for scsi id: %s. Exception: %s" % (scsi_id, str(e)))
         retval = False
 
     return (retval, list)
+
 
 def _get_localhost_uuid():
     filename = '/etc/xensource-inventory'
@@ -783,15 +825,16 @@ def _get_localhost_uuid():
         f = open(filename, 'r')
     except:
         raise xs_errors.XenError('EIO', \
-              opterr="Unable to open inventory file [%s]" % filename)
+                                 opterr="Unable to open inventory file [%s]" % filename)
     domid = ''
     for line in filter(util.match_domain_id, f.readlines()):
         domid = line.split("'")[1]
     return domid
 
+
 def disk_data_test(device, test_blocks, sect_of_block=DDT_DEFAULT_BLOCK_SIZE, test_time=0):
-    iter_start = str(random.randint(0, 100000))    # NOSONAR
-    
+    iter_start = str(random.randint(0, 100000))  # NOSONAR
+
     cmd = [DISKDATATEST, 'write', device, str(sect_of_block), str(test_blocks), str(test_time), iter_start]
     xencert_print("The command to be fired is: %s" % cmd)
     (rc, stdout, stderr) = util.doexec(cmd)
@@ -816,23 +859,26 @@ def disk_data_test(device, test_blocks, sect_of_block=DDT_DEFAULT_BLOCK_SIZE, te
 
     if sector_errors != 0:
         raise Exception("Disk test verify error on %d sectors!", sector_errors)
-        
+
     return total_blocks, write_blocks, write_elapsed, verify_blocks, verify_elapsed
-    
+
+
 def get_blocks_num(size, sect_of_block=DDT_DEFAULT_BLOCK_SIZE):
-    return size*MiB/(sect_of_block*DDT_SECTOR_SIZE)
-    
+    return size * MiB / (sect_of_block * DDT_SECTOR_SIZE)
+
+
 def find_disk_data_test_estimate(device, size):
     # Run diskdatatest in a report mode
     xencert_print("Run diskdatatest in a report mode with device %s to find the estimated time." % device)
 
     total_blocks, write_blocks, write_elapsed, verify_blocks, verify_elapsed = \
-            disk_data_test(device, get_blocks_num(size), test_time=15)
+        disk_data_test(device, get_blocks_num(size), test_time=15)
 
-    estimated_time = total_blocks * (write_elapsed/write_blocks + verify_elapsed/verify_blocks)
- 
+    estimated_time = total_blocks * (write_elapsed / write_blocks + verify_elapsed / verify_blocks)
+
     xencert_print("Total estimated time for testing IO with the device %s as %d" % (device, estimated_time))
     return estimated_time
+
 
 def _find_lun(svid):
     basepath = "/dev/disk/by-csldev/"
@@ -847,28 +893,29 @@ def _find_lun(svid):
     if not len(path):
         return []
 
-    #Find CSLDEV paths
-    svid_to_use = re.sub("-[0-9]*:[0-9]*:[0-9]*:[0-9]*$","",os.path.basename(path))    # NOSONAR
+    # Find CSLDEV paths
+    svid_to_use = re.sub("-[0-9]*:[0-9]*:[0-9]*:[0-9]*$", "", os.path.basename(path))  # NOSONAR
     devs = scsiutil._genReverseSCSIidmap(svid_to_use, pathname="csldev")
 
-    #Find scsiID
+    # Find scsiID
     for dev in devs:
         try:
             scsi_id = scsiutil.getSCSIid(dev)
         except:
             pass
 
-    #Find root device and return
+    # Find root device and return
     if not scsi_id:
         return []
     else:
-        device=mpath_dmp.path(scsi_id)
+        device = mpath_dmp.path(scsi_id)
         xencert_print("DEBUG: device path : %s" % (device))
         return [device]
 
+
 def write_data_to_vdi(session, vbd_ref, start_sec, end_sec):
     xencert_print('write_data_to_vdi(vbd_ref=%s, start_sec=%s, end_sec=%s, ->Enter)' \
-                 % (vbd_ref, start_sec, end_sec))
+                  % (vbd_ref, start_sec, end_sec))
     try:
         device = os.path.join(dev_path, session.xenapi.VBD.get_device(vbd_ref))
 
@@ -879,15 +926,16 @@ def write_data_to_vdi(session, vbd_ref, start_sec, end_sec):
                 f.seek(start_sec * SECTOR_SIZE)
                 f.write(BUF_PATTERN)
                 start_sec += 1
-    except Exception, e:
+    except Exception as e:
         raise Exception('Writing data into VDI:%s Failed. Error: %s' \
-                % (vbd_ref, e))
+                        % (vbd_ref, e))
 
     xencert_print('write_data_to_vdi() -> Exit')
 
+
 def verify_data_on_vdi(session, vbd_ref, start_sec, end_sec):
     xencert_print('verify_data_on_vdi(vdi_ref=%s, start_sec=%s, end_sec=%s ->Enter)' \
-                 % (vbd_ref, start_sec, end_sec))
+                  % (vbd_ref, start_sec, end_sec))
     try:
         device = os.path.join(dev_path, session.xenapi.VBD.get_device(vbd_ref))
 
@@ -900,11 +948,11 @@ def verify_data_on_vdi(session, vbd_ref, start_sec, end_sec):
                 f.seek(start_sec * SECTOR_SIZE)
                 actual = f.read(len(expect))
                 if actual != expect:
-                    raise Exception('expected:%s != actual:%s'\
-                             % (expect, actual))
+                    raise Exception('expected:%s != actual:%s' \
+                                    % (expect, actual))
                 start_sec += 1
-    except Exception, e:
-        raise Exception('Verification of data in VDI:%s Failed. Error:%s'\
-                % (vbd_ref, e))
+    except Exception as e:
+        raise Exception('Verification of data in VDI:%s Failed. Error:%s' \
+                        % (vbd_ref, e))
 
     xencert_print('verify_data_on_vdi() -> Exit')

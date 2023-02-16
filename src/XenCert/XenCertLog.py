@@ -1,4 +1,4 @@
-import commands
+import subprocess
 import os
 import sys
 from util import SMlog
@@ -41,7 +41,7 @@ def print_on_same_line(message):
 def init_logging():
     global logfile
     global logfilename
-    logfilename = os.path.join('/tmp', 'XenCert-' + commands.getoutput('uuidgen') + '.log')    # NOSONAR
+    logfilename = os.path.join('/tmp', 'XenCert-' + subprocess.getoutput('uuidgen') + '.log')    # NOSONAR
     logfile = open(logfilename, 'a')
 
 def uninit_logging():
