@@ -2967,7 +2967,7 @@ class StorageHandlerCIFS(StorageHandler):
             printout("      Creating the SR. ")
             device_config_tmp = get_config_with_hidden_password(device_config, self.storage_conf['storage_type'])
             xencert_print("The SR create parameters are %s, %s " % (util.get_localhost_uuid(self.session), device_config_tmp))
-            sr_ref = self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), device_config, '0', 'XenCertTestSR', '', 'cifs', '',False, {})
+            sr_ref = self.session.xenapi.SR.create(util.get_localhost_uuid(self.session), device_config, '0', 'XenCertTestSR', '', 'smb', '',False, {})
             xencert_print("Created the SR %s" % sr_ref)
             display_operation_status(True)
 
