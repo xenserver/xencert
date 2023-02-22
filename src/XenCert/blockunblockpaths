@@ -24,8 +24,7 @@
 # or just waits till the flag is set. 
 
 import sys
-sys.path.insert(0, "/opt/xensource/sm")
-import util
+from sm import util
 import xen.lowlevel.xs
 import os
 import time

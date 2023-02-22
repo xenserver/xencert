@@ -17,8 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #
 import sys
-sys.path.insert(0, "/opt/xensource/sm")
-import util
+from sm import util
 import xen.lowlevel.xs
 import random
 import os

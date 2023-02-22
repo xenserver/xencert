@@ -23,13 +23,7 @@ import random
 import xml.dom.minidom
 from XenCertLog import printout, print_on_same_line, xencert_print
 from XenCertCommon import display_operation_status, get_config_with_hidden_password
-import scsiutil
-import util
-import lvutil, vhdutil
-import iscsilib
-import mpath_cli
-import mpath_dmp
-import xs_errors
+from sm import scsiutil, util, lvutil, vhdutil, iscsilib, mpath_dmp, mpath_cli, xs_errors
 
 ISCSI_PROCNAME = "iscsi_tcp"
 dev_path = '/dev/'

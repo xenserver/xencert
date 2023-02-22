@@ -20,7 +20,7 @@
 
 
 import sys
-sys.path.append("/opt/xensource/sm")
+sys.path.append("/opt/xensource/debug/XenCert/sm")
 from datetime import datetime
 import time
 import subprocess

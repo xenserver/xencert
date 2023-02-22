@@ -27,13 +27,9 @@ from xml.dom import minidom
 import StorageHandlerUtil
 from XenCertLog import printout, print_on_same_line, xencert_print
 from XenCertCommon import display_operation_status, get_config_with_hidden_password, hide_path_info_password
-import scsiutil
-import iscsilib
-import util
-import nfs
-from lvutil import MDVOLUME_NAME, remove, rename
-from srmetadata import LVMMetadataHandler, updateLengthInHeader, open_file
-import metadata
+from sm import scsiutil, iscsilib, util, nfs, metadata
+from sm.lvutil import MDVOLUME_NAME, remove, rename
+from sm.srmetadata import LVMMetadataHandler, updateLengthInHeader, open_file
 
 
 retValIO = 0
@@ -455,7 +451,7 @@ class StorageHandler(object):
 
     def get_sr_information(self, map, device_config):
         scsi_id_to_use = None
-        for iqn in list(map.keys()):
+        for iqn in map:
             for scsi_id in map[iqn]:
                 try:
                     device_config['targetIQN'] = iqn
@@ -941,7 +937,7 @@ class StorageHandler(object):
                 fd = open_file(self.mdpath, True)
                 updateLengthInHeader(fd, 2048, 1,0)
                 if fd != -1:
-                    os.close(fd)
+                    fd.close()
                     fd = -1
                 display_operation_status(True)
 
@@ -1068,7 +1064,7 @@ class StorageHandler(object):
 
         finally:
             if fd != -1:
-                os.close(fd)
+                fd.close()
 
             if self.sr_ref is not None:
                 printout(">>>> Delete VDIs on the SR ")
