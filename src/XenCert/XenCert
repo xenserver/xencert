@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/python3 -u
 #
 # Copyright (c) 2005-2022 Citrix Systems Inc.
 # Copyright (c) 2022-12-01 Cloud Software Group Holdings, Inc.
@@ -20,10 +20,10 @@
 
 
 import sys
-sys.path.append("/opt/xensource/sm")
+sys.path.append("/opt/xensource/debug/XenCert/sm")
 from datetime import datetime
 import time
-import commands
+import subprocess
 import XenCertCommon
 import StorageHandler
 from XenCertLog import init_logging, uninit_logging, print_to_log, printout, get_log_file_name
@@ -65,7 +65,7 @@ def main():
     # requested storage type and hand it over to the handler to
     # perform the certification process
     handler = StorageHandler.get_storage_handler(g_storage_conf)
-    build = commands.getoutput('cat /etc/xensource-inventory | grep BUILD_NUMBER')
+    build = subprocess.getoutput('cat /etc/xensource-inventory | grep BUILD_NUMBER')
     printout("********************** Welcome to XenCert %s %s *****************" % (version, build))
     printout("Test start time: %s" % time.asctime(time.localtime()))
     start = datetime.now()
