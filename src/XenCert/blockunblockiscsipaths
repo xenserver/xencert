@@ -17,7 +17,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #
 import sys
-from sm import util
+sys.path.append("/opt/xensource/debug/XenCert/sm")
+import util
 import xen.lowlevel.xs
 import random
 

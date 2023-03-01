@@ -24,7 +24,8 @@
 # or just waits till the flag is set. 
 
 import sys
-from sm import util
+sys.path.append("/opt/xensource/debug/XenCert/sm")
+import util
 import xen.lowlevel.xs
 import os
 import time
