@@ -23,6 +23,7 @@ import subprocess
 import glob
 import random
 import operator
+import re
 from xml.dom import minidom
 import StorageHandlerUtil
 from XenCertLog import printout, print_on_same_line, xencert_print
@@ -378,7 +379,9 @@ class StorageHandler(object):
                             xencert_print("    - IO test passed. Time: %s. Data: %s. Throughput: %s." % (
                             timeTaken, '1MB', speedOfCopy))
 
-                        if timeTaken > max_time_taken:
+                        timeTaken_value = re.findall("\d+\.?\d*", str(timeTaken)) 
+                        max_time_taken_value = re.findall("\d+\.?\d*", str(max_time_taken))
+                        if float(timeTaken_value[0]) > float(max_time_taken_value[0]):
                             max_time_taken = timeTaken
                             throughput_for_max_time = speedOfCopy
 
