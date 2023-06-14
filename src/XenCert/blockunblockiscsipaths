@@ -27,25 +27,25 @@ from XenCertLog import xencert_print
 def help():
     print("Usage: blockunblockiscsipaths <block/unblock> <noOfPaths> <IP1>,<IP2>,...")
     sys.exit(-1)
-    
+
 def block_ip(ip):
     try:
-	cmd = ['iptables', '-A', 'OUTPUT', '-d', ip, '-j', 'DROP']
+        cmd = ['iptables', '-A', 'OUTPUT', '-d', ip, '-j', 'DROP']
         util.pread(cmd)
-	cmd = ['iptables', '-A', 'INPUT', '-s', ip, '-j', 'DROP']
+        cmd = ['iptables', '-A', 'INPUT', '-s', ip, '-j', 'DROP']
         util.pread(cmd)
     except Exception as e:
         util.SMlog("There was an exception in blocking ip: %s" % ip)
 
 def unblock_ip(ip):
     try:
-	cmd = ['iptables', '-D', 'OUTPUT', '-d', ip, '-j', 'DROP']
+        cmd = ['iptables', '-D', 'OUTPUT', '-d', ip, '-j', 'DROP']
         util.pread(cmd)
-	cmd = ['iptables', '-D', 'INPUT', '-s', ip, '-j', 'DROP']
+        cmd = ['iptables', '-D', 'INPUT', '-s', ip, '-j', 'DROP']
         util.pread(cmd)
     except Exception as e:
-        util.SMlog("There was an exception in blocking ip: %s" % ip)
-	
+        util.SMlog("There was an exception in unblocking ip: %s" % ip)
+
 # Test Cmdline args
 xencert_print("Entering blockunblockiscsipaths")
 if len(sys.argv) != 4:
@@ -64,13 +64,13 @@ paths = ''
 for ip in newList:    
     if op == 'block':
         xencert_print('blockunblockiscsipaths - blocking ip %s' % ip)
-	paths += ip
-	block_ip(ip)
+        paths += ip
+        block_ip(ip)
     elif op == 'unblock':
         xencert_print('blockunblockiscsipaths - unblocking ip %s' % ip)
-	unblock_ip(ip)
+        unblock_ip(ip)
     else:
-	continue
+        continue
     paths += ','
 
 paths = paths.strip(',')
