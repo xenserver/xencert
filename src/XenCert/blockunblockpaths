@@ -35,7 +35,7 @@ from XenCertLog import printout, xencert_print
 def help():
     printout("Usage: blockunblockpaths <blockunblockscript> <block/unblock> <noOfPaths> <passthrough-information>")
     sys.exit(-1)
-	
+
 # Test Cmdline args
 xencert_print("Entering blockunblockpaths")
 if len(sys.argv) != 5 and len(sys.argv) != 1 :
