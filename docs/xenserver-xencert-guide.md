@@ -1,53 +1,58 @@
 <p><div class="content-wrapper"></p>  
 
-# XenServer 8 Stream XenCert User Guide
+# XenServer 8 Stream Shared Storage Certification kit User Guide
 
 <br>
 
-Published Mar 2023  
-3.2 Edition
+Published Oct 2023  
+8.3.1 Edition
 
 
 <br>
 
 #### Table of Contents  
 
-  - [Overview](#overview)
-  - [Environmental Guidelines](#environmental-guidelines)
-  - [Installation](#installation)
-  - [Test Categories](#test-categories)
-  - [XenCert usage explained](#xencert-usage-explained)
-  - [Execution time estimates](#execution-time-estimates)
-  - [Running XenCert against various storage types](#running-xencert-against-various-storage-types)
-    - [Executing iSCSI tests](#executing-iscsi-tests)
-    - [Executing HBA and FCOE tests](#executing-hba-and-fcoe-tests)
-    - [Executing NFS tests](#executing-nfs-tests)
-    - [Executing SMB tests](#executing-smb-tests)
-    - [Executing Boot from SAN Multipath tests](#executing-boot-from-san-multipath-tests)
-  - [Forcing failure in multipath tests](#forcing-failure-in-multipath-tests)
-    - [Failing paths with iSCSI storage](#failing-paths-with-iscsi-storage)
-    - [Failing paths with HBA storage](#failing-paths-with-hba-storage)
-  - [Space Reclamation Tests](#space-reclamation-tests)
-  - [Log submission](#log-submission)
-  - [Appendix A - Blocking paths for failover testing](#appendix-a-blocking-paths-for-failover-testing)
-    - [iSCSI storage type](#iscsi-storage-type)
-    - [HBA storage type](#hba-storage-type)
-  - [Appendix B - Notes on storage discovery](#appendix-b-notes-on-storage-discovery)
-  - [Appendix C - Sample scripts provided with XenCert](#appendix-c-sample-scripts-provided-with-xencert)
-    - [blockunblockpaths](#blockunblockpaths)
-    - [blockunblockiscsipaths](#blockunblockiscsipaths)
-    - [blockunblockhbapaths](#blockunblockhbapaths)
-    - [blockunblockHBAport.sh.brocade](#blockunblockhbaportshbrocade)
-    - [blockunblockHBAport.sh.qlogic](#blockunblockhbaportshqlogic)
-    - [blockunblockHBAport.sh.cisco](#blockunblockhbaportshcisco)
-  - [Appendix D - Sample commands for testing multipathing with XenCert](#appendix-d-sample-commands-for-testing-multipathing-with-xencert)
-    - [iSCSI](#iscsi)
-    - [HBA](#hba)
-    - [Notice and Disclaimer](#notice-and-disclaimer)
+- [XenServer 8 Stream Shared Storage Certification kit User Guide](#xenserver-8-stream-shared-storage-certification-kit-user-guide)
+      - [Table of Contents](#table-of-contents)
+    - [Overview](#overview)
+    - [Environmental Guidelines](#environmental-guidelines)
+    - [Installation](#installation)
+    - [Test Categories](#test-categories)
+    - [Shared storage certification kit usage explained](#shared-storage-certification-kit-usage-explained)
+    - [Execution time estimates](#execution-time-estimates)
+    - [Running shared storage certification kit against various storage types](#running-shared-storage-certification-kit-against-various-storage-types)
+      - [Executing iSCSI tests](#executing-iscsi-tests)
+      - [Executing HBA and FCOE tests](#executing-hba-and-fcoe-tests)
+      - [Executing NFS tests](#executing-nfs-tests)
+      - [Executing SMB tests](#executing-smb-tests)
+      - [Executing Boot from SAN Multipath tests](#executing-boot-from-san-multipath-tests)
+    - [Forcing failure in multipath tests](#forcing-failure-in-multipath-tests)
+      - [Failing paths with iSCSI storage](#failing-paths-with-iscsi-storage)
+      - [Failing paths with HBA storage](#failing-paths-with-hba-storage)
+    - [Space Reclamation Tests](#space-reclamation-tests)
+    - [Log submission](#log-submission)
+    - [Appendix A-Blocking paths for failover testing](#appendix-a-blocking-paths-for-failover-testing)
+      - [iSCSI storage type](#iscsi-storage-type)
+      - [HBA storage type](#hba-storage-type)
+    - [Appendix B-Notes on storage discovery](#appendix-b-notes-on-storage-discovery)
+    - [Appendix C-Sample scripts provided with shared storage certification kit](#appendix-c-sample-scripts-provided-with-shared-storage-certification-kit)
+      - [blockunblockpaths](#blockunblockpaths)
+      - [blockunblockiscsipaths](#blockunblockiscsipaths)
+      - [blockunblockhbapaths](#blockunblockhbapaths)
+      - [blockunblockHBAport.sh.brocade](#blockunblockhbaportshbrocade)
+      - [blockunblockHBAport.sh.qlogic](#blockunblockhbaportshqlogic)
+      - [blockunblockHBAport.sh.cisco](#blockunblockhbaportshcisco)
+    - [Appendix D-Sample commands for testing multipathing with shared storage certification kit](#appendix-d-sample-commands-for-testing-multipathing-with-shared-storage-certification-kit)
+      - [iSCSI](#iscsi)
+      - [HBA](#hba)
+        - [QLogic](#qlogic)
+        - [Brocade](#brocade)
+        - [Cisco](#cisco)
+      - [Notice and Disclaimer](#notice-and-disclaimer)
 
 ### Overview  
 
-The purpose of this document is to familiarize the reader with XenCert, the XenServer Storage Certification Kit. The certification kit is designed to certify the interoperability of various types of storage hardware with XenServer.  
+The purpose of this document is to familiarize the reader with XenServer Shared Storage Certification Kit. The certification kit is designed to certify the interoperability of various types of storage hardware with XenServer.  
 
 Note that for Converged Network Adapters (CNAs) that provide FCOE and iSCSI services, this certification suite will only verify the storage data path. The network functionality must be validated using the separate XenServer Hardware Test Kit.
 
@@ -63,19 +68,19 @@ Note that for Converged Network Adapters (CNAs) that provide FCOE and iSCSI serv
 - If testing using ISCSI, FC or FCOE then you are required to run these tests on a licensed host, with either XenServer Enterprise or Xenserver Virtual Apps or Desktop entitlement. This is so that the GFS2 SR can be tested. If you are a XenServer Partner, then demo licenses can be acquired through the Xenserver Ready programme.  See <https://www.citrix.co.uk/partner-programs/citrix-ready/> for more details.  
 
 ### Installation
-XenCert is part of a separate supplemental pack. The pack needs to be installed after installing XenServer.
+Shared storage certification kit is part of a separate supplemental pack. The pack needs to be installed after installing XenServer.
 
-For the installation the supplemental pack xencert-supp-pack.iso needs to be transferred to the control domain, Dom0, of the host under test using either wget or scp.  Copy the ISO onto the /root directory.
+For the installation the supplemental pack xenserver-shared-storage-cert-kit-xs8.iso needs to be transferred to the control domain, Dom0, of the host under test using either wget or scp.  Copy the ISO onto the /root directory.
 
 The supplemental pack subsequently needs to be installed using the following command:  
 
-    xe update-upload file-name=”/root/xencert-supp-pack.iso”  
+    xe update-upload file-name=”/root/xenserver-shared-storage-cert-kit-xs8.iso”  
 
-The command returns the update uuid of xencert package on successful upload.  
+The command returns the update uuid of shared storage certification kit package on successful upload.  
 
     xe update-apply uuid=<uuid of uploaded update> host=<host uuid>  
 
-After installing the supplemental pack, XenCert can be found in the directory /opt/xensource/debug/XenCert. XenCert is made up of a number of scripts and support files:  
+After installing the supplemental pack, shared storage certification kit can be found in the directory /opt/xensource/debug/XenCert. XenCert is made up of a number of scripts and support files:  
 
     XenCert
     XenCertCommon.py
@@ -102,8 +107,8 @@ The verification performed by the kit can be categorized into the following test
   
 The certification tests validate a specific storage type and need to be run for all storage types separately to certify against all the types (lvmoisci, lvmohba and nfs).   
 
-### XenCert usage explained
-XenCert is controlled using the ./XenCert script. Its usage is described below:  
+### Shared storage certification kit usage explained
+Shared storage certification kit is controlled using the ./XenCert script. Its usage is described below:  
 
     ./XenCert –h
 
@@ -152,7 +157,7 @@ XenCert is controlled using the ./XenCert script. Its usage is described below:
 - By default, there are 100 iterations of the multipath failover tests. This can be overridden by specifying a smaller value with the –g option above. This is particularly useful in case of manual failover like pulling out cables in case of Fibre Channel.  
   
 ### Execution time estimates 
-XenCert has been designed so as to limit the total execution time of the kit to 12 hours. This duration is partitioned between the various tests as:     
+Shared storage certification kit has been designed so as to limit the total execution time of the kit to 12 hours. This duration is partitioned between the various tests as:     
 •  **Functional tests:** Maximum 4 hours.   
 •  **Control path stress tests:** Maximum 6 hours.  
 •  **Multipath configuration verification tests:** N.A. as not IO intensive.  
@@ -164,7 +169,7 @@ Please note however, that these estimates are arrived at run-time using some rou
 
 **Important:** The 12 hours interval is a maximum execution time heuristic. If the execution completes earlier, the execution time should not be taken as a measure of correctness.  
 
-### Running XenCert against various storage types
+### Running shared storage certification kit against various storage types
 #### Executing iSCSI tests
 To be able to run the tests against an iSCSI target, the following details need to be specified:  
 
@@ -194,14 +199,14 @@ To extend support for alternate multipath configurations:
 To be able to run these tests, the system will need to have access to LUNs from hardware HBAs. Thus before running the test the user will need access to:  
 
 - A list of adapters to run the test against  
-- If performing multipathing tests, a path block utility, which would take in some adapter specific information and block the paths. For sample scripts (blockunblockhbapaths) and parameters refer to Appendix C. There are various examples for different switch vendors included with XenCert.  
+- If performing multipathing tests, a path block utility, which would take in some adapter specific information and block the paths. For sample scripts (blockunblockhbapaths) and parameters refer to Appendix C. There are various examples for different switch vendors included with shared storage certification kit.  
 - The information required by the block and unblock utility to work. See example below.  
 
 The test can then be initiated using the following command: 
 ```
     #  ./XenCert -b <hba/fcoe> –a <adapter1,adapter2,…> -S <SCSIID1, SCSIID2,..> –u <full path >/blockunblockhbapaths –i fc-switch-IP:username:password:port-no-1,port-no-2  
 ```
-If no adapter is specified, the tests would be run against all the adapters with LUNs mapped to the server where XenCert is being executed. The above command will run all 4 categories of tests. If required, specific flags can be used to run particular tests only. Control path stress tests will be executed using fully provisioned LVM storage mapping and thin provisioned Global Filesystem 2 (GFS2) distributed filesystem storage.  
+If no adapter is specified, the tests would be run against all the adapters with LUNs mapped to the server where shared storage certification kit is being executed. The above command will run all 4 categories of tests. If required, specific flags can be used to run particular tests only. Control path stress tests will be executed using fully provisioned LVM storage mapping and thin provisioned Global Filesystem 2 (GFS2) distributed filesystem storage.  
 
 Note that the adapters known to the XenServer host can be probed using the XenServer CLI command outlined in the Appendix.  
 
@@ -302,15 +307,15 @@ To perform these tests, please follow the steps below:
 
 ### Log submission  
 
-If you need to authenticate Storage, please download the verification form: <a href="xenserver-xencert-verification-form.docx" download="xenserver-xencert-verification-form.docx">xenserver-xencert-verification-form </a>  
+If you need to authenticate Storage, please download the verification form: <a href="xenserver-shared-storage-verification-form.docx" download="xenserver-shared-storage-verification-form.docx">xenserver-shared-storage-verification-form </a>  
 
 There are a number of required items necessary for submission. These are:  
 
-- Completely filled out XenCert Verification Results Form (one per storage type).  
+- Completely filled out shared storage certification kit Verification Results Form (one per storage type).  
 - Every test run will usually create an additional log file which will mirror the output shown on the terminal while the test runs. The location of this file will be reported at the end of each test, these log files will need to be submitted with the form above as well. A sample result output with the report file name will look like:  
 ```
 ***********************************************************************
-End of XenCert certification suite.
+End of shared storage certification kit certification suite.
 Please find the report for this test run at: /tmp/XenCert-392094cb-be9f-4331-9961-e28e82251814.log
 ***********************************************************************
 Test end time: Fri May  7 15:45:04 2010
@@ -574,7 +579,7 @@ Error parameters: , The request is missing the device parameter, <?xml version="
         </Adapter>
 </Devlist>
 ```
-### Appendix C-Sample scripts provided with XenCert  
+### Appendix C-Sample scripts provided with shared storage certification kit  
 
 #### blockunblockpaths
 This is a script for blocking or unblocking paths manually, which sets the following value in xenstore:  
@@ -707,9 +712,9 @@ This sample script telnets to a cisco switch and brings ports up or down. The sc
 
  
 
-### Appendix D-Sample commands for testing multipathing with XenCert    
+### Appendix D-Sample commands for testing multipathing with shared storage certification kit    
 
-The following illustrations assume that XenCert has been installed at /root/XenCert. If this is not true, then please replace “/root/XenCert” in all the examples with the respective path.  
+The following illustrations assume that shared storage certification kit has been installed at /root/XenCert. If this is not true, then please replace “/root/XenCert” in all the examples with the respective path.  
 
 #### iSCSI
 For 100 iterations of multipathing failover test:  
