@@ -1,6 +1,6 @@
 <p><div class="content-wrapper"></p>  
 
-# XenServer 8 Stream Shared Storage Certification kit User Guide
+# XenServer 8 Shared Storage Certification kit User Guide
 
 <br>
 
@@ -12,7 +12,7 @@ Published Oct 2023
 
 #### Table of Contents  
 
-- [XenServer 8 Stream Shared Storage Certification kit User Guide](#xenserver-8-stream-shared-storage-certification-kit-user-guide)
+- [XenServer 8 Shared Storage Certification kit User Guide](#xenserver-8-shared-storage-certification-kit-user-guide)
       - [Table of Contents](#table-of-contents)
     - [Overview](#overview)
     - [Environmental Guidelines](#environmental-guidelines)
@@ -52,7 +52,7 @@ Published Oct 2023
 
 ### Overview  
 
-The purpose of this document is to familiarize the reader with XenServer Shared Storage Certification Kit. The certification kit is designed to certify the interoperability of various types of storage hardware with XenServer.  
+The purpose of this document is to familiarize the reader with XenServer Shared Storage Certification Kit. The certification kit is designed to certify the interoperability of various types of storage hardware with XenServer. The XenServer certification kit needs to be run with the latest version of the corresponding XenServer Release. Make sure that XenServer 8 has been updated to the latest version before testing.
 
 Note that for Converged Network Adapters (CNAs) that provide FCOE and iSCSI services, this certification suite will only verify the storage data path. The network functionality must be validated using the separate XenServer Hardware Test Kit.
 
