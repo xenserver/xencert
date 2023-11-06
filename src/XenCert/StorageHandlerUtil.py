@@ -41,7 +41,7 @@ GiB = KiB * KiB * KiB
 SECTOR_SIZE = 1 * GiB
 CHAR_SEQ = "".join([chr(x) for x in range(256)])
 CHAR_SEQ_REV = "".join([chr(x) for x in range(255, -1, -1)])
-BUF_PATTERN = CHAR_SEQ + CHAR_SEQ
+BUF_PATTERN = (CHAR_SEQ + CHAR_SEQ).encode('utf-8')
 BUF_PATTERN_REV = CHAR_SEQ_REV + CHAR_SEQ_REV
 BUF_ZEROS = "\0" * 512
 
@@ -915,7 +915,7 @@ def write_data_to_vdi(session, vbd_ref, start_sec, end_sec):
 
         xencert_print('about to write onto device: %s' % device)
 
-        with open(device, 'w') as f:
+        with open(device, 'wb') as f:
             while start_sec <= end_sec:
                 f.seek(start_sec * SECTOR_SIZE)
                 f.write(BUF_PATTERN)
@@ -935,7 +935,7 @@ def verify_data_on_vdi(session, vbd_ref, start_sec, end_sec):
 
         xencert_print('about to read from device: %s' % device)
 
-        expect = BUF_PATTERN.encode()
+        expect = BUF_PATTERN
 
         with open(device, 'rb') as f:
             while start_sec <= end_sec:
