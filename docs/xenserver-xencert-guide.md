@@ -65,7 +65,7 @@ Note that for Converged Network Adapters (CNAs) that provide FCOE and iSCSI serv
 - All visible LUNs must be at least 1GB in size for test completion estimates to be reasonably accurate. An average of 10GB per LUN is recommended.  
 - For multipathing failover tests at least 2 paths must be available.  
 - If the storage target supports space reclamation (discard, unmap, trim), please enable the capability on the target before running the test-kit.  
-- If testing using ISCSI, FC or FCOE then you are required to run these tests on a licensed host, with either XenServer Enterprise or Xenserver Virtual Apps or Desktop entitlement. This is so that the GFS2 SR can be tested. If you are a XenServer Partner, then demo licenses can be acquired through the Xenserver Ready programme.  See <https://www.citrix.co.uk/partner-programs/citrix-ready/> for more details.  
+- If testing using iSCSI, FC or FCOE then you are required to run these tests on a licensed host, with either XenServer Enterprise or Citrix Virtual Apps and Desktops entitlement. This is so that the GFS2 SR can be tested. If you are a XenServer Partner, then demo licenses can be acquired through the Citrix Ready program.  See <https://www.citrix.co.uk/partner-programs/citrix-ready/> for more details.  
 
 ### Installation
 Shared storage certification kit is part of a separate supplemental pack. The pack needs to be installed after installing XenServer.
