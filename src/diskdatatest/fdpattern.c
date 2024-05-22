@@ -26,6 +26,7 @@
 #include <linux/fs.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include "atomicio.h"
 
 /* This tool is able to write test pattern to disk and verify it.
@@ -147,7 +148,7 @@ void free_block_buf()
     block_buf = NULL;
 }
 
-inline void update_sect(char *sect_buf)
+static inline void update_sect(char *sect_buf)
 {
     struct sector_slice *hdr = NULL;
     unsigned long long i = 0;
@@ -158,7 +159,7 @@ inline void update_sect(char *sect_buf)
     }
 }
 
-inline void update_block()
+static inline void update_block()
 {
     unsigned long long i = 0;
     for (; i < sects_of_block; i++) {
@@ -172,7 +173,7 @@ inline void update_block()
     }
 }
 
-inline void verify_sect(const char *sect_buf)
+static inline void verify_sect(const char *sect_buf)
 {
     const struct sector_slice *hdr = NULL;
     bool sect_error = false;
@@ -198,7 +199,7 @@ inline void verify_sect(const char *sect_buf)
         sect_errors++;
 }
 
-inline void verify_block()
+static inline void verify_block()
 {
     unsigned long long i = 0;
     for (; i < sects_of_block; i++) {
@@ -274,7 +275,7 @@ bool check_file_size(int fd)
     return true;
 }
 
-inline double get_op_elapsed(const struct timeval *start)
+static inline double get_op_elapsed(const struct timeval *start)
 {
     struct timeval current_time;
     gettimeofday(&current_time, NULL);
