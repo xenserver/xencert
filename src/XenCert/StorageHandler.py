@@ -365,7 +365,7 @@ class StorageHandler(object):
                     s = WaitForFailover(self.session, device_config['SCSIid'], len(self.listPathConfig), devices_to_fail, checkfunc)
                     s.start()
 
-                    while s.isAlive():
+                    while s.is_alive():
                         timeTaken = 0
                         s1 = TimedDeviceIO(self.session.xenapi.VBD.get_device(vbd_ref))
                         s1.start()
