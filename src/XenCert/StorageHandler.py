@@ -43,6 +43,7 @@ DEFAULT_PORT = 3260
 RPCINFO_BIN = "/usr/sbin/rpcinfo"
 VG_LOCATION = "/dev"
 VG_PREFIX = "VG_XenStorage-"
+TESTED_SIZE_MB = 10240
 
 # simple tracer
 def report(predicate, condition):
@@ -2586,6 +2587,10 @@ class StorageHandlerHBA(BlockStorageHandler):
 
                         time_for_io_tests_in_sec = 0
                         # Estimate test for only specified lun
+                        # CA-398895: Only test 10GB for disk IO test for each LUN, because the size of LUN is too large now,
+                        # and it will take too long to finish the test (more than 24 hours).
+                        if size > TESTED_SIZE_MB:
+                            size = TESTED_SIZE_MB
                         if lun['SCSIid'] in scsi_id_list:
                             time_for_io_tests_in_sec = StorageHandlerUtil.find_disk_data_test_estimate(lun['device'], size)
                         if lun['SCSIid'] in scsi_to_tuple_map:
@@ -2610,6 +2615,7 @@ class StorageHandlerHBA(BlockStorageHandler):
             printout("   that they are writeable and there is no apparent disk corruption.")
             printout("   the tests attempt to write to the LUN over each available path and")
             printout("   reports the number of writable paths to each LUN.")
+            printout("   To reduce the time taken to run the tests, only test up to 10GB for disk IO test for each LUN.")
 
             scsi_ids_to_test = {}
 
@@ -2640,9 +2646,9 @@ class StorageHandlerHBA(BlockStorageHandler):
             elif minutes > 0:
                 printout("   APPROXIMATE RUN TIME: %s minutes, %s seconds." % (minutes, seconds))
             elif seconds > 0:
-                printout("   APPROXIMATE RUN TIME: %s seconds." % seconds)            
+                printout("   APPROXIMATE RUN TIME: %s seconds." % seconds)
             
-            printout("")            
+            printout("")
             total_checkpoints += 1
             for key in list(scsi_ids_to_test.keys()):
                 try:
