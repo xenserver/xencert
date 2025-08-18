@@ -143,7 +143,7 @@ Shared storage certification kit is controlled using the ./XenCert script. Its u
 
     Test specific options:
     Multipathing test options (-m above):
-    -b storage_type	    [required] storage type (iscsi, hba, nfs, isl, fcoe)
+    -b storage_type	    [required] storage type (iscsi, hba, nfs, cifs, isl, fcoe)
     -u pathHandlerUtil	[optional] absolute path to admin provided callout utility which blocks/unblocks a list of paths, path related information should be provided with the -i option below
     -i pathInfo         [optional] pass-through string used to pass data to the callout utility above, for e.g. login credentials etc. This string is passed as-is to the callout utility.
     -g count		    [optional] count of iterations to perform in case of multipathing failover testing  

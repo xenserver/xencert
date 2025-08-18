@@ -20,7 +20,7 @@ from optparse import OptionParser
 from XenCertLog import print_to_log, printout
 
 
-storage_type = "storage type (iscsi, hba, nfs, isl, fcoe)"
+storage_type = "storage type (iscsi, hba, nfs, cifs, isl, fcoe)"
 HIDDEN_PASSWORD = '*' * 8
 
 TAG_PASS = "[PASS]"
