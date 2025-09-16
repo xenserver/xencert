@@ -20,7 +20,7 @@ from optparse import OptionParser
 from XenCertLog import print_to_log, printout
 
 
-storage_type = "storage type (iscsi, hba, nfs, cifs, isl, fcoe)"
+storage_type = "storage type (iscsi, hba, nfs, cifs)"
 HIDDEN_PASSWORD = '*' * 8
 
 TAG_PASS = "[PASS]"
@@ -45,9 +45,6 @@ __cifs_args__ = [
 __hba_args__ = [
     ["adapters",       "comma separated list of HBAs to test against", " : ", None,        "optional", "-a", ""   ],
     ["scsiIDs",       "comma separated list of SCSI-IDs to test against", " : ", None,        "required", "-S", ""   ] ]
-
-__isl_args__ = [
-    ["file",       "configuration file describing target array paramters", " : ", None,        "required", "-F", ""   ] ]
 
 __iscsi_args__ = [
     ["target",          "comma separated list of Target names/IP addresses", " : ", None,        "required", "-t", ""      ],
@@ -97,12 +94,6 @@ def parse_args(version_string):
                        default=element[3],
                        help=element[1],
                        dest=element[0])
-   
-    for element in __isl_args__:
-        opt.add_option(element[5], element[6],
-                       default=element[3],
-                       help=element[1],
-                       dest=element[0])
 
     for element in __iscsi_args__:
         opt.add_option(element[5], element[6],
@@ -136,8 +127,8 @@ def store_configuration(g_storage_conf, options):
 
 def valid_arguments(options, g_storage_conf):
     """ validate arguments """
-    if not options.storage_type in ["hba", "nfs", "cifs", "iscsi", "isl", "fcoe"]:
-        printout("Error: storage type (hba, nfs, cifs, isl, fcoe or iscsi) is required")
+    if not options.storage_type in ["hba", "nfs", "cifs", "iscsi"]:
+        printout("Error: storage type (hba, nfs, cifs, or iscsi) is required")
         return 0
 
     for element in __commonparams__:
@@ -156,7 +147,6 @@ def valid_arguments(options, g_storage_conf):
         "cifs": __cifs_args__,
         "hba": __hba_args__,
         "fcoe": __hba_args__,
-        "isl": __isl_args__,
         "iscsi": __iscsi_args__}
     subargs = subargs_table[options.storage_type]
 
@@ -199,12 +189,7 @@ def display_cifs_options():
 def display_hba_options():
     printout(" Storage type hba:\n")
     for item in __hba_args__:
-        print_help_item(item)    
-
-def display_isl_options():
-    printout(" Storage type isl:\n")
-    for item in __isl_args__:
-        print_help_item(item)    
+        print_help_item(item)       
   
 def display_test_specific_options():
     printout("Test specific options:")
@@ -221,8 +206,6 @@ def display_storage_specific_usage(storage_type):
         display_cifs_options()
     elif storage_type in ['hba', 'fcoe']:
         display_hba_options()
-    elif storage_type == 'isl':
-        display_isl_options()
     elif storage_type is None:
         display_iscsi_options()
         printout("")
@@ -230,9 +213,7 @@ def display_storage_specific_usage(storage_type):
         printout("")
         display_cifs_options()
         printout("")
-        display_hba_options()        
-        printout("")
-        display_isl_options()        
+        display_hba_options()               
      
 def display_usage(storage_type=None):
     display_common_options()

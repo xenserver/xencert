@@ -109,18 +109,60 @@ def disable_multipathing(session, host):
         xencert_print("Exception disabling multipathing. Exception: %s" % str(e))
 
 
+def is_firewall_enabled():
+    try:
+        cmd = ['systemctl', 'is-active', 'firewalld']
+        (rc, stdout, stderr) = util.doexec(cmd)
+        return  rc == 0 and stdout.strip() == 'active'
+    except Exception as e:
+        xencert_print("Exception determining firewalld status. Exception: %s" % str(e))
+        return False
+    
+def get_external_bridges(session, host):
+    try:
+        brlist = []
+        piflist = session.xenapi.host.get_PIFs(host)
+        for pif in piflist:
+            if session.xenapi.PIF.get_management(pif):
+                continue
+            br = session.xenapi.PIF.get_bridge(pif)
+            if br not in brlist:
+                brlist.append(br)
+        return brlist
+    except Exception as e:
+        xencert_print("Exception determining external bridges. Exception: %s" % str(e))
+        return []
+
+
 def block_ip(ip):
     try:
-        cmd = ['iptables', '-A', 'INPUT', '-s', ip, '-j', 'DROP']
-        util.pread(cmd)
+        if is_firewall_enabled():
+            for bridge in get_external_bridges():
+                cmd = [
+                    "/usr/bin/ovs-ofctl", "add-flow", bridge,
+                    f"priority=40001,ip,nw_src={ip},action=drop"
+                ]
+                util.pread(cmd)                   
+        else:
+            cmd = ['iptables', '-A', 'INPUT', '-s', ip, '-j', 'DROP']
+            util.pread(cmd)
+        
     except Exception as e:
         xencert_print("There was an exception in blocking ip: %s. Exception: %s" % (ip, str(e)))
 
 
 def unblock_ip(ip):
     try:
-        cmd = ['iptables', '-D', 'INPUT', '-s', ip, '-j', 'DROP']
-        util.pread(cmd)
+        if is_firewall_enabled():
+            for bridge in get_external_bridges(session, host):
+                cmd = [
+                    "/usr/bin/ovs-ofctl", "del-flows", bridge,
+                    f"ip,nw_src={ip}"
+                ]
+                util.pread(cmd)
+        else:
+            cmd = ['iptables', '-D', 'INPUT', '-s', ip, '-j', 'DROP']
+            util.pread(cmd)
     except Exception as e:
         xencert_print("There was an exception in unblocking ip: %s. Exception: %s" % (ip, str(e)))
 
