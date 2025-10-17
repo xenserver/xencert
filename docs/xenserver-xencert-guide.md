@@ -4,8 +4,8 @@
 
 <br>
 
-Published Mar 2024  
-8.4.0 Edition
+Published Nov 2025  
+9.0.0 Edition
 
 
 <br>
@@ -19,7 +19,7 @@ Published Mar 2024
 - [Execution time estimates](#execution-time-estimates)
 - [Running shared storage certification kit against various storage types](#running-shared-storage-certification-kit-against-various-storage-types)
     - [Executing iSCSI tests](#executing-iscsi-tests)
-    - [Executing HBA and FCOE tests](#executing-hba-and-fcoe-tests)
+    - [Executing HBA tests](#executing-hba-tests)
     - [Executing NFS tests](#executing-nfs-tests)
     - [Executing SMB tests](#executing-smb-tests)
     - [Executing Boot from SAN Multipath tests](#executing-boot-from-san-multipath-tests)
@@ -50,7 +50,7 @@ Published Mar 2024
 
 The purpose of this document is to familiarize the reader with XenServer Shared Storage Certification Kit. The certification kit is designed to certify the interoperability of various types of storage hardware with XenServer. The XenServer certification kit needs to be run with the latest version of the corresponding XenServer Release. Make sure that XenServer 8 has been updated to the latest version before testing.
 
-Note that for Converged Network Adapters (CNAs) that provide FCOE and iSCSI services, this certification suite will only verify the storage data path. The network functionality must be validated using the separate XenServer Hardware Test Kit.
+Note that for Converged Network Adapters (CNAs) that provide iSCSI services, this certification suite will only verify the storage data path. The network functionality must be validated using the separate XenServer Hardware Test Kit.
 
 ### Environmental Guidelines  
 
@@ -138,12 +138,9 @@ Shared storage certification kit is controlled using the ./XenCert script. Its u
     -a adapters		[optional] comma separated list of HBAs to test against
     -S scsiIDs      [required] comma separated list of SCSI-IDs to test against
 
-    Storage type isl:
-    -F file         [required] configuration file describing target array parameters
-
     Test specific options:
     Multipathing test options (-m above):
-    -b storage_type	    [required] storage type (iscsi, hba, nfs, cifs, isl, fcoe)
+    -b storage_type	    [required] storage type (iscsi, hba, nfs, cifs)
     -u pathHandlerUtil	[optional] absolute path to admin provided callout utility which blocks/unblocks a list of paths, path related information should be provided with the -i option below
     -i pathInfo         [optional] pass-through string used to pass data to the callout utility above, for e.g. login credentials etc. This string is passed as-is to the callout utility.
     -g count		    [optional] count of iterations to perform in case of multipathing failover testing  
@@ -193,7 +190,7 @@ To extend support for alternate multipath configurations:
 - Rerun the multipath tests as outlined above.  
 - Update the verification form fields (Note changes to multipath.conf and update Test: XC.MultiPath (alternate multipath configuration - optional)).  
 
-##### Executing HBA and FCOE tests
+##### Executing HBA tests
 To be able to run these tests, the system will need to have access to LUNs from hardware HBAs. Thus before running the test the user will need access to:  
 
 - A list of adapters to run the test against  
@@ -202,7 +199,7 @@ To be able to run these tests, the system will need to have access to LUNs from 
 
 The test can then be initiated using the following command: 
 ```
-    #  ./XenCert -b <hba/fcoe> –a <adapter1,adapter2,…> -S <SCSIID1, SCSIID2,..> –u <full path >/blockunblockhbapaths –i fc-switch-IP:username:password:port-no-1,port-no-2  
+    #  ./XenCert -b <hba> –a <adapter1,adapter2,…> -S <SCSIID1, SCSIID2,..> –u <full path >/blockunblockhbapaths –i fc-switch-IP:username:password:port-no-1,port-no-2  
 ```
 If no adapter is specified, the tests would be run against all the adapters with LUNs mapped to the server where shared storage certification kit is being executed. The above command will run all 4 categories of tests. If required, specific flags can be used to run particular tests only. Control path stress tests will be executed using fully provisioned LVM storage mapping and thin provisioned Global Filesystem 2 (GFS2) distributed filesystem storage.  
 
@@ -245,7 +242,7 @@ The test can then be initiated using the following command:
 
 For example if:  
 
-- path_to_share: <a href=http://192.168.100.100/smb_share_5>//192.168.100.100/smb_share_5</a>    
+- path_to_share: //192.168.100.100/smb_share_5  
 - username: jane_doe    
 - password: s3Cure_password  
 
@@ -263,7 +260,7 @@ Valid SMB tests with their respective flags are:
 
 ##### Executing Boot from SAN Multipath tests  
 
-Please follow the following steps below to perform boot from SAN multipath tests manually. For more information, see [boot from san](https://docs.xenserver.com/en-us/xenserver/8/install/advanced-install.html#boot-from-san).
+Please follow the following steps below to perform boot from SAN multipath tests manually. For more information, see [boot from san](https://docs.xenserver.com/en-us/xenserver/9/install/advanced-install.html#boot-from-san).
 
 1. Ensure that your array has boot from SAN capability  
 2. Configure your array for multipath support (multiple paths to the XenServer)  
@@ -273,12 +270,12 @@ Please follow the following steps below to perform boot from SAN multipath tests
 6. Plug in the disconnected cable and look for the failed paths to be active again within a maximum time of 2 minutes.(Fail back)  
 7. Repeat this step for all the available paths.  
 8. Observe the number of paths available before and after the test and they should be consistent.  
-**Note:**  Multipath boot from SAN is currently supported on hardware HBAs only. (SAS, HBA and FCoE)  
+**Note:**  Multipath boot from SAN is currently supported on hardware HBAs only. (SAS, HBA)  
 
 ### Forcing failure in multipath tests  
-Multipath tests are intended to exercise the port failover capabilities within a single host.  Note that these tests only apply to the LVM over iSCSI and LVM over HBA (iscsi, fcoe and hba) storage types.  
+Multipath tests are intended to exercise the port failover capabilities within a single host.  Note that these tests only apply to the LVM over iSCSI and LVM over HBA (iscsi, hba) storage types.  
 ##### Failing paths with iSCSI storage  
-For failing paths in the case of iSCSI storage, the iptables command can be used. Sample commands for blocking and unblocking paths have been posted in the Appendix A. 
+For failing paths in the case of iSCSI storage, the nft command can be used. Sample commands for blocking and unblocking paths have been posted in the Appendix A. 
 ##### Failing paths with HBA storage   
 There are several ways to fail paths in the case of hba storage:  
 
@@ -331,13 +328,17 @@ Execution time: 47 minutes, 42 seconds.
 ### Appendix A-Blocking paths for failover testing  
 
 ##### iSCSI storage type  
-For iSCSI storage type, the paths can be failed over by using the iptables utility:  
+For iSCSI storage type, the paths can be failed over by using the nftables:  
 
-    iptables –A OUTPUT –d <IP address> -j DROP or iptables –A INPUT –s <IP address> -j DROP  
+    nft add table inet filter
+    nft add chain inet filter input { type filter hook input priority 0 \; }
+    nft add chain inet filter output { type filter hook output priority 0 \; }
+    nft add rule inet filter output ip daddr <IP address> drop
+    nft add rule inet filter input  ip saddr <IP address> drop  
 
 Subsequently, the paths can be brought online as follows:  
 
-    iptables –D OUTPUT –d <IP address> -j DROP or iptables –D INPUT –s <IP address> -j DROP  
+    nft flush ruleset 
 
 ##### HBA storage type  
 
@@ -601,14 +602,18 @@ The pseudo code for this script can be summarized as:
 
 If it is a block operation:  
 1. Choose noOfPaths paths randomly from the passed in list of IP addresses.  
-2. Block the chosen paths using iptables command:    
+2. Block the chosen paths using nft command:    
 ```
-iptables –A INPUT –s ip –j DROP
+nft add table inet filter
+nft add chain inet filter input { type filter hook input priority 0 \; }
+nft add chain inet filter output { type filter hook output priority 0 \; }
+nft add rule inet filter output ip daddr <IP address> drop
+nft add rule inet filter input  ip saddr <IP address> drop 
 ```
 3. Write a comma-separated list of blocked IPs to stdout  
-If it is an unblock operation, then just unblock the passed in list of IP addresses using iptables command:  
+If it is an unblock operation, then just unblock the passed in list of IP addresses using nft command:  
 ```
-iptables –D INPUT –s ip –j DROP
+nft flush ruleset
 ```
 In both the cases, set the ‘/xencert/block-unblock-over’ entry in XenStore to ‘1’ and exit.  
 
@@ -758,4 +763,4 @@ For less than 100 iterations of multipathing failover test, for instance for 10 
 #### Notice and Disclaimer <!-- omit in toc -->
 <font size="2">The contents of this kit are subject to change without notice.
 
-Copyright © 2024 Cloud Software Group, Inc. This kit allows you to test your products for compatibility with XenServer products.  Actual compatibility results may vary.  The kit is not designed to test for all compatibility scenarios.  Should you use the kit, you must not misrepresent the nature of the results to third parties. TO THE EXTENT PERMITTED BY APPLICABLE LAW, XENSERVER MAKES AND YOU RECEIVE NO WARRANTIES OR CONDITIONS, EXPRESS, IMPLIED, STATUTORY OR OTHERWISE, AND XENSERVER SPECIFICALLY DISCLAIMS WITH RESPECT TO THE KIT ANY CONDITIONS OF QUALITY, AVAILABILITY, RELIABILITY, BUGS OR ERRORS, AND ANY IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE. YOU ASSUME THE RESPONSIBILITY FOR ANY INVESTMENTS MADE OR COSTS INCURRED TO ACHIEVE YOUR INTENDED RESULTS. TO THE EXTENT PERMITTED BY APPLICABLE LAW, XENSERVER SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, SPECIAL, CONSEQUENTIAL, INCIDENTAL, PUNITIVE OR OTHER DAMAGES (INCLUDING, WITHOUT LIMITATION, DAMAGES FOR LOSS OF INCOME, LOSS OF OPPORTUNITY, LOST PROFITS OR ANY OTHER DAMAGES), HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, AND WHETHER OR NOT FOR NEGLIGENCE OR OTHERWISE, AND WHETHER OR NOT XENSERVER HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.</font>
+Copyright © 2025 Cloud Software Group, Inc. This kit allows you to test your products for compatibility with XenServer products.  Actual compatibility results may vary.  The kit is not designed to test for all compatibility scenarios.  Should you use the kit, you must not misrepresent the nature of the results to third parties. TO THE EXTENT PERMITTED BY APPLICABLE LAW, XENSERVER MAKES AND YOU RECEIVE NO WARRANTIES OR CONDITIONS, EXPRESS, IMPLIED, STATUTORY OR OTHERWISE, AND XENSERVER SPECIFICALLY DISCLAIMS WITH RESPECT TO THE KIT ANY CONDITIONS OF QUALITY, AVAILABILITY, RELIABILITY, BUGS OR ERRORS, AND ANY IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE. YOU ASSUME THE RESPONSIBILITY FOR ANY INVESTMENTS MADE OR COSTS INCURRED TO ACHIEVE YOUR INTENDED RESULTS. TO THE EXTENT PERMITTED BY APPLICABLE LAW, XENSERVER SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, SPECIAL, CONSEQUENTIAL, INCIDENTAL, PUNITIVE OR OTHER DAMAGES (INCLUDING, WITHOUT LIMITATION, DAMAGES FOR LOSS OF INCOME, LOSS OF OPPORTUNITY, LOST PROFITS OR ANY OTHER DAMAGES), HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, AND WHETHER OR NOT FOR NEGLIGENCE OR OTHERWISE, AND WHETHER OR NOT XENSERVER HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.</font>

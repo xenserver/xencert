@@ -28,21 +28,57 @@ def help():
     print("Usage: blockunblockiscsipaths <block/unblock> <noOfPaths> <IP1>,<IP2>,...")
     sys.exit(-1)
 
+def is_firewall_enabled():
+    try:
+        cmd = ['systemctl', 'is-active', 'firewalld']
+        (rc, stdout, stderr) = util.doexec(cmd)
+        return  rc == 0 and stdout.strip() == 'active'
+    except Exception as e:
+        xencert_print("Exception determining firewalld status. Exception: %s" % str(e))
+        return False
+
+def get_external_bridges():
+    brlist = []
+    try:
+        cmd = ["ovs-vsctl", "list-br"]
+        (rc, stdout, stderr) = util.doexec(cmd)
+        brlist = stdout.strip().splitlines()
+        return brlist
+    except Exception as e:
+        xencert_print("Exception determining external bridges. Exception: %s" % str(e))
+        return brlist
+
 def block_ip(ip):
     try:
-        cmd = ['iptables', '-A', 'OUTPUT', '-d', ip, '-j', 'DROP']
-        util.pread(cmd)
-        cmd = ['iptables', '-A', 'INPUT', '-s', ip, '-j', 'DROP']
-        util.pread(cmd)
+        if is_firewall_enabled():
+            for bridge in get_external_bridges():
+                cmd = [
+                    "/usr/bin/ovs-ofctl", "add-flow", bridge,
+                    f"priority=40001,ip,nw_src={ip},action=drop"
+                ]
+                util.pread(cmd) 
+        else:
+            cmd = ['iptables', '-A', 'OUTPUT', '-d', ip, '-j', 'DROP']
+            util.pread(cmd)
+            cmd = ['iptables', '-A', 'INPUT', '-s', ip, '-j', 'DROP']
+            util.pread(cmd)
     except Exception as e:
         util.SMlog("There was an exception in blocking ip: %s" % ip)
 
 def unblock_ip(ip):
     try:
-        cmd = ['iptables', '-D', 'OUTPUT', '-d', ip, '-j', 'DROP']
-        util.pread(cmd)
-        cmd = ['iptables', '-D', 'INPUT', '-s', ip, '-j', 'DROP']
-        util.pread(cmd)
+        if is_firewall_enabled():
+            for bridge in get_external_bridges():
+                cmd = [
+                    "/usr/bin/ovs-ofctl", "del-flows", bridge,
+                    f"ip,nw_src={ip}"
+                ]
+                util.pread(cmd)
+        else:
+            cmd = ['iptables', '-D', 'OUTPUT', '-d', ip, '-j', 'DROP']
+            util.pread(cmd)
+            cmd = ['iptables', '-D', 'INPUT', '-s', ip, '-j', 'DROP']
+            util.pread(cmd)
     except Exception as e:
         util.SMlog("There was an exception in unblocking ip: %s" % ip)
 
