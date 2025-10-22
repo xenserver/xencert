@@ -146,7 +146,6 @@ def valid_arguments(options, g_storage_conf):
         "nfs": __nfs_args__,
         "cifs": __cifs_args__,
         "hba": __hba_args__,
-        "fcoe": __hba_args__,
         "iscsi": __iscsi_args__}
     subargs = subargs_table[options.storage_type]
 
