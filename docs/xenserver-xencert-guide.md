@@ -1,6 +1,6 @@
 <p><div class="content-wrapper"></p>  
 
-# XenServer 8 Shared Storage Certification kit User Guide <!-- omit in toc -->
+# XenServer 9 Shared Storage Certification kit User Guide <!-- omit in toc -->
 
 <br>
 
@@ -48,7 +48,7 @@ Published Nov 2025
 
 ### Overview  
 
-The purpose of this document is to familiarize the reader with XenServer Shared Storage Certification Kit. The certification kit is designed to certify the interoperability of various types of storage hardware with XenServer. The XenServer certification kit needs to be run with the latest version of the corresponding XenServer Release. Make sure that XenServer 8 has been updated to the latest version before testing.
+The purpose of this document is to familiarize the reader with XenServer Shared Storage Certification Kit. The certification kit is designed to certify the interoperability of various types of storage hardware with XenServer. The XenServer certification kit needs to be run with the latest version of the corresponding XenServer Release. Make sure that XenServer 9 has been updated to the latest version before testing.
 
 Note that for Converged Network Adapters (CNAs) that provide iSCSI services, this certification suite will only verify the storage data path. The network functionality must be validated using the separate XenServer Hardware Test Kit.
 
@@ -65,11 +65,11 @@ Note that for Converged Network Adapters (CNAs) that provide iSCSI services, thi
 ### Installation
 Shared storage certification kit is part of a separate supplemental pack. The pack needs to be installed after installing XenServer.
 
-For the installation the supplemental pack xenserver-shared-storage-cert-kit-xs8.iso needs to be transferred to the control domain, Dom0, of the host under test using either wget or scp.  Copy the ISO onto the /root directory.
+For the installation the supplemental pack xenserver-shared-storage-cert-kit-xs9.iso needs to be transferred to the control domain, Dom0, of the host under test using either wget or scp.  Copy the ISO onto the /root directory.
 
 The supplemental pack subsequently needs to be installed using the following command:  
 
-    xe update-upload file-name=”/root/xenserver-shared-storage-cert-kit-xs8.iso”  
+    xe update-upload file-name=”/root/xenserver-shared-storage-cert-kit-xs9.iso”  
 
 The command returns the update uuid of shared storage certification kit package on successful upload.  
 
