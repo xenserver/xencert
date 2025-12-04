@@ -54,6 +54,13 @@ __iscsi_args__ = [
     ["chapuser",        "username for CHAP", " : ", '',        "optional", "-x", ""    ],
     ["chappasswd",      "password for CHAP", " : ", '',        "optional", "-w", ""  ] ]
 
+__nvme_args__ = [   
+    ["provider",    "NVMe-oF transport protocol (e.g., tcp)", " : ", None, "required", "-T", ""],
+    ["targetNQN",    "NVMe subsystem NQN (one per SR)",      " : ", None, "required", "-Q", ""],
+    ["wwid",       "NVMe namespace ID to use for SR creation",                " : ", '',   "required", "-N", ""],
+    ["traddr",     "NVMe target IP(s) or hostname(s)", " : ", None, "optional", "-A", ""],
+    ["trsvcid",       "NVMe target port (e.g., 4420 for TCP)",                   " : ", None, "optional", "-P", ""]]
+    
 
 __common__ = [    
     ["functional", "perform functional tests",                          " : ", None, "optional", "-f", ""],
@@ -102,6 +109,12 @@ def parse_args(version_string):
                        help=element[1],
                        dest=element[0])
 
+    for element in __nvme_args__:
+        opt.add_option(element[5], element[6],
+                       default=element[3],
+                       help=element[1],
+                       dest=element[0])
+
     for element in __commonparams__:
         opt.add_option(element[5], element[6],
                        default=element[3],
@@ -128,7 +141,7 @@ def store_configuration(g_storage_conf, options):
 
 def valid_arguments(options, g_storage_conf):
     """ validate arguments """
-    if not options.storage_type in ["hba", "nfs", "cifs", "iscsi"]:
+    if not options.storage_type in ["hba", "nfs", "cifs", "iscsi", "nvme"]:
         printout("Error: storage type (hba, nfs, cifs, or iscsi) is required")
         return 0
 
@@ -147,7 +160,8 @@ def valid_arguments(options, g_storage_conf):
         "nfs": __nfs_args__,
         "cifs": __cifs_args__,
         "hba": __hba_args__,
-        "iscsi": __iscsi_args__}
+        "iscsi": __iscsi_args__,
+        "nvme": __nvme_args__}
     subargs = subargs_table[options.storage_type]
 
     for element in subargs:
@@ -189,6 +203,11 @@ def display_cifs_options():
 def display_hba_options():
     printout(" Storage type hba:\n")
     for item in __hba_args__:
+        print_help_item(item)
+
+def display_nvme_options():
+    printout(" Storage type nvme:\n")
+    for item in __nvme_args__:
         print_help_item(item)       
   
 def display_test_specific_options():
@@ -204,8 +223,10 @@ def display_storage_specific_usage(storage_type):
         display_nfs_options()
     elif storage_type == 'cifs':
         display_cifs_options()
-    elif storage_type in ['hba', 'fcoe']:
+    elif storage_type == 'hba':
         display_hba_options()
+    elif storage_type == 'nvme':
+        display_nvme_options()
     elif storage_type is None:
         display_iscsi_options()
         printout("")

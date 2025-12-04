@@ -212,7 +212,7 @@ class StorageHandler(object):
             # Execute trim on the SR before destroying based on type
             if sr_ref is not None:
                 sr_type = self.session.xenapi.SR.get_type(sr_ref)
-                if sr_type in ['lvmoiscsi', 'lvmohba', 'lvmofcoe']:
+                if sr_type in ['lvmoiscsi', 'lvmohba']:
                     printout("SR SPACE RECLAMATION TEST")
                     # Perform TRIM before destroying SR
                     total_checkpoints += 1
@@ -608,18 +608,42 @@ class StorageHandler(object):
             checkpoint = check_result_for_checkpoint(retval, "      SR creation failed.  ", checkpoint, 1)
                     
             # Now check PBDs for this SR and make sure all PBDs reflect the same number of active and passive paths for hosts with multipathing enabled.  
-            printout("   -> Checking paths reflected on PBDs for each host.")
-            my_pbd = util.find_my_pbd(self.session, util.get_localhost_ref(self.session), sr_ref)
-            ref_other_config = self.session.xenapi.PBD.get_other_config(my_pbd)
-            printout("      %-50s %-10s" % ('Host', '[Active, Passive]'))
-            for key in list(ref_other_config.keys()):
-                if 'SCSIid' in device_config and (key.find(device_config['SCSIid']) != -1):
-                    printout("      %-50s %-10s" % (util.get_localhost_ref(self.session), ref_other_config[key]))
-                    break
+            if self.storage_conf.get('storage_type') == 'nvme':
+                printout("   -> Checking PBDs for each host (NVMe).")
+                host_list_all = self.session.xenapi.host.get_all()
+                pbds = self.session.xenapi.SR.get_PBDs(sr_ref)
+                host_to_pbd = {}
+                for pbd in pbds:
+                    host_ref = self.session.xenapi.PBD.get_host(pbd)
+                    host_to_pbd[host_ref] = pbd
+                missing_hosts = []
+                for host in host_list_all:
+                    if host not in host_to_pbd:
+                        try:
+                            missing_hosts.append(self.session.xenapi.host.get_name_label(host))
+                        except Exception:
+                            missing_hosts.append(str(host))
+                if missing_hosts:
+                    raise Exception("Missing PBD(s) for host(s): %s" % ', '.join(missing_hosts))
+                for host in host_list_all:
+                    pbd = host_to_pbd[host]
+                    if not self.session.xenapi.PBD.get_currently_attached(pbd):
+                        self.session.xenapi.PBD.plug(pbd)
+                display_operation_status(True)
+                checkpoint += 1
+            else:
+                printout("   -> Checking paths reflected on PBDs for each host.")
+                my_pbd = util.find_my_pbd(self.session, util.get_localhost_ref(self.session), sr_ref)
+                ref_other_config = self.session.xenapi.PBD.get_other_config(my_pbd)
+                printout("      %-50s %-10s" % ('Host', '[Active, Passive]'))
+                for key in list(ref_other_config.keys()):
+                    if 'SCSIid' in device_config and (key.find(device_config['SCSIid']) != -1):
+                        printout("      %-50s %-10s" % (util.get_localhost_ref(self.session), ref_other_config[key]))
+                        break
 
-            self.pbds_function(sr_ref, my_pbd, device_config, ref_other_config)
-            display_operation_status(True)
-            checkpoint += 1
+                self.pbds_function(sr_ref, my_pbd, device_config, ref_other_config)
+                display_operation_status(True)
+                checkpoint += 1
  
         except Exception as e:
             printout("      There was an exception while performing pool consistency tests. Exception: %s. Please check the log for details." % str(e))
@@ -3257,6 +3281,8 @@ class StorageHandlerGFS2(StorageHandler):
             provider = 'iscsi'
         elif isinstance(base_handler, StorageHandlerHBA):
             provider = 'hba'
+        elif isinstance(base_handler, StorageHandlerNVMe):
+            provider = 'hba' if base_handler.device_config['provider'] != 'tcp' else 'tcp'
         else:
             raise Exception('GFS does not support base %s' %
                             (base_handler.__class__.__name__))
@@ -3287,6 +3313,25 @@ class StorageHandlerGFS2(StorageHandler):
         try:
             xencert_print(
                 "First use XAPI to get information for creating an SR.  ")
+
+            if isinstance(self.base_handler, StorageHandlerNVMe):
+                srtype, dconf = self.prepareNvme(self.base_handler)
+
+                host_ref = util.get_localhost_ref(self.session)
+                sr_ref = self.session.xenapi.SR.create(
+                    host_ref,
+                    dconf,
+                    0,
+                    "XenCertTestSR",
+                    '',
+                    'gfs2',
+                    '',
+                    True,
+                    {}
+                )
+                xencert_print("Created the SR {} using device_config {}".format(sr_ref, dconf))
+                display_operation_status(True)
+                return True, sr_ref, dconf
 
             if isinstance(self.base_handler, StorageHandlerISCSI):
                 list_scsi_id = self.getIscsiScsiIds()
@@ -3361,14 +3406,261 @@ class StorageHandlerGFS2(StorageHandler):
             raise Exception("   - None of the specificied SCSI IDs are available."
                             " Please confirm that the IDs you provided are valid and that the LUNs are not already in use.")
         return list(avaiable_scsi_ids)
+    
+    def prepareNvme(self, nvme_handler):
+        dconf = {'protocol': 'nvme'}
+        self.provider = nvme_handler.device_config.get('provider').strip().lower()
+        if self.provider not in ('tcp', 'hba'):
+            raise Exception("Unsupported NVMe provider: %s" % self.provider)
+        dconf['provider'] = self.provider
+        wwid = nvme_handler.device_config.get('wwid').strip()
+        if wwid:
+            dconf['wwid'] = wwid
+        nqn = nvme_handler.device_config.get('nqn').strip()
+        if nqn and nqn != '*':
+            dconf['nqn'] = nqn
+        
+        if self.provider == 'tcp':
+            traddr = nvme_handler.device_config.get('traddr').strip()
+            if not traddr:
+                raise Exception("NVMe/TCP requires traddr")
+            dconf['traddr'] = traddr
+            dconf['trsvcid'] = str(nvme_handler.device_config.get('trsvcid') or '4420')             
 
+        return 'gfs2', dconf
+
+
+class StorageHandlerNVMe(BlockStorageHandler):
+    """
+    Storage handler for NVMe testing.
+    """
+    def __init__(self, storage_conf):
+        xencert_print("Reached StorageHandlerNVME constructor")
+        self.device_config = {}
+        self.provider = storage_conf.get('provider').strip().lower()
+        if self.provider not in ('tcp', 'hba'):
+            raise Exception("Unsupported NVMe provider: %s" % self.provider)
+        self.device_config = {
+            'protocol': 'nvme',
+            'provider': self.provider,
+            'wwid': storage_conf.get('wwid'),
+            'nqn': storage_conf.get('targetNQN'),
+        }
+        if self.provider == 'tcp':
+            self.device_config['traddr'] = storage_conf.get('traddr')
+            self.device_config['trsvcid'] = storage_conf.get('trsvcid')
+        super(StorageHandlerNVMe, self).__init__(storage_conf)
+
+    def _get_host_nqn(self):
+        try:
+            (rc, out, err) = util.doexec(
+                ['bash', '-lc', 'test -s /etc/nvme/hostnqn && cat /etc/nvme/hostnqn || true'],
+                ''
+            )
+            host_nqn = (out or '').strip()
+            return (bool(host_nqn), host_nqn)
+        except Exception:
+            return (False, '')
+
+    def _host_nqn_ready(self):
+        return self._get_host_nqn()
+    
+    def create(self, device_config = {}):
+        try:
+            dconf = {
+                'protocol': 'nvme',
+                'provider': self.provider,
+                'wwid': self.device_config.get('wwid', ''),
+                'nqn': self.device_config.get('nqn', ''),
+            }
+            if self.provider == 'tcp':
+                traddr = (self.device_config.get('traddr') or '').strip()
+                if not traddr:
+                    raise Exception("NVMe/TCP create requires -A/--traddr (target IPs/hostnames).")
+                dconf['traddr'] = traddr
+                dconf['trsvcid'] = str(self.device_config.get('trsvcid') or '4420')
+            else:
+                ok, host_nqn = self._host_nqn_ready()
+                if not ok:
+                    raise Exception("Host NQN is not configured. Please configure /etc/nvme/hostnqn before running NVMe/FC tests.")
+                xencert_print("Host NQN ready for NVMe/FC: %s" % host_nqn)
+            host_ref = util.get_localhost_ref(self.session)
+            sr_ref = self.session.xenapi.SR.create(
+                host_ref,
+                dconf,
+                '0',
+                'XenCertTestSR',
+                '',
+                'gfs2',
+                '',
+                True,
+                {}
+            )
+            xencert_print("Created NVMe SR %s using device_config: %s" % (sr_ref, dconf))
+            return (True, sr_ref, dconf)
+        except Exception as e:
+            msg = str(e).lower()
+            if any(k in msg for k in ['in use', 'busy', 'already in use', 'already contains', 'has a sr', 'sr exists', 'already exists']):
+                printout("   - WARNING: NVMe namespace appears to be in use or an SR already exists. Skipping SR creation for this namespace.")
+                return (False, None, {'protocol': 'nvme', 'provider': self.device_config.get('provider')})
+            printout("   - Failed to create NVMe SR. Exception: %s" % str(e))
+            display_operation_status(False)
+            return (False, None, {})
+
+    def _size_mb_from_sysfs(self, dev_name):
+        try:
+            path = os.path.join('/sys/block', dev_name, 'size')
+            sectors = util.get_single_entry(path)
+            xencert_print("NVMe namespace %s size: %s sectors" % (dev_name, sectors))
+            return int(sectors) * 512 // 1024 // 1024
+        except Exception as e:
+            raise Exception("Failed to get size of NVMe namespaces: %s" % str(e))
+
+    def _list_devices(self):
+        devs = []
+        try:
+            for sys_path in sorted(glob.glob('/sys/block/nvme*n*')):
+                name = os.path.basename(sys_path)
+                if not re.match(r'^nvme\d+(c\d+)?n\d+$', name):
+                    continue
+                dev = '/dev/%s' % name
+                size_mb = self._size_mb_from_sysfs(name)
+                nqn = (self.device_config.get('nqn') or '').strip() or '*'
+                devs.append({'dev': dev, 'size_mb': size_mb, 'nqn': nqn})
+        except Exception as e:
+            raise Exception("Failed to list NVMe namespaces: %s" % str(e))
+        return devs
+    
+    def control_path_stress_tests(self):
+        try:
+            if not self.Gfs2Supported():
+                printout("Skipping NVMe GFS2 control tests: clustering not supported.")
+                return (True, 0, 0)
+            return super(StorageHandlerNVMe, self).control_path_stress_tests()
+        finally:
+            self.DisableClustering()
+    
+    def functional_tests(self):
+        retval = True
+        checkpoint = 0
+        skipped = 0
+        total_checkpoints = 6
+        sr_ref = None
+        vdi_ref = None
+        vbd_ref = None
+        try:
+            printout("INITIALIZING NVME DATA PATH LAYER")
+            host_ref = util.get_localhost_ref(self.session)
+            nqn = (self.device_config.get('nqn') or '').strip()
+            wwid = (self.device_config.get('wwid') or '').strip()
+            dconf = {'protocol': 'nvme', 'provider': self.provider}
+            if nqn and nqn != '*':
+                dconf['nqn'] = nqn
+            if self.provider == 'tcp':
+                traddr = (self.device_config.get('traddr') or '').strip()
+                if not traddr:
+                    raise Exception("NVMe/TCP functional tests require traddr (-A).")
+                dconf['traddr'] = traddr
+                dconf['trsvcid'] = str(self.device_config.get('trsvcid') or '4420')
+            else:
+                ok, host_nqn = self._host_nqn_ready()
+                if not ok:
+                    raise Exception("Host NQN is not configured. Please configure /etc/nvme/hostnqn before running NVMe/FC tests.")
+                xencert_print("Host NQN ready for NVMe/FC: %s" % host_nqn)
+            # 1) Probe (discovery/validation)
+            printout("PROBING NVME SR")
+            self.session.xenapi.SR.probe(host_ref, dconf, 'gfs2', {})
+            display_operation_status(True)
+            checkpoint += 1
+            # 2) Create SR AFTER raw IO (so we don't corrupt the filesystem)
+            printout("CREATING NVME SR")
+            if wwid and wwid != '*':
+                dconf['wwid'] = wwid
+            (ok, sr_ref, _created_dconf) = self.create()
+            check_result(ok, "      SR creation failed.   ")
+            display_operation_status(True)
+            checkpoint += 1
+            # 3) Report namespaces
+            printout("REPORT NAMESPACES EXPOSED")
+            devices = self._list_devices()
+            if not devices:
+                display_operation_status(False)
+                raise Exception("No NVMe namespaces found (no /dev/nvme*).")
+            printout("   %-25s %-15s %-8s" % ('Device', 'NQN', 'SizeMB'))
+            for d in devices:
+                printout("   %-25s %-15s %-8s" % (d['dev'], d.get('nqn', nqn or '*'), d['size_mb']))
+            display_operation_status(True)
+            checkpoint += 1          
+            # 4) create a VDI of the maximum space available. Plug the VDI into Dom0 and write data across the whole virtual disk. 
+            printout("VDI BLOCK IO TESTS")
+            try:
+                (ok, vdi_ref, vbd_ref, vdi_size) = StorageHandlerUtil.create_max_size_vdi_and_vbd(self.session, sr_ref)
+                check_result(ok, "   - Failed to create/attach VDI for IO test.")
+                checkpoint += 1
+                vbd_device = self.session.xenapi.VBD.get_device(vbd_ref)
+                devpath = "/dev/%s" % vbd_device
+                try:
+                    vdi_mb = int(int(vdi_size) / StorageHandlerUtil.MiB)
+                except Exception:
+                    vdi_mb = TESTED_SIZE_MB
+                if vdi_mb <= 0:
+                    vdi_mb = TESTED_SIZE_MB
+                if vdi_mb > TESTED_SIZE_MB:
+                    vdi_mb = TESTED_SIZE_MB
+                cmd = self.util_pread_cmd + [self.util_of_param % devpath, 'conv=nocreat']
+                util.pread(cmd)
+                StorageHandlerUtil.disk_data_test(devpath, StorageHandlerUtil.get_blocks_num(vdi_mb))
+                checkpoint += 1
+            except Exception as e:
+                printout("        Exception: %s" % str(e))
+                display_operation_status(False)
+                retval = False
+        except Exception as e:
+            printout("- Functional testing failed due to an exception.")
+            printout("- Exception: %s" % str(e))
+            display_operation_status(False)
+            retval = False
+        finally:
+            # 5) Cleanup
+            try:
+                if vbd_ref is not None:
+                    try:
+                        self.session.xenapi.VBD.unplug(vbd_ref)
+                    except Exception:
+                        pass
+                    try:
+                        self.session.xenapi.VBD.destroy(vbd_ref)
+                    except Exception:
+                        pass
+                    vbd_ref = None
+                if vdi_ref is not None:
+                    try:
+                        self.session.xenapi.VDI.destroy(vdi_ref)
+                    except Exception:
+                        pass
+                    vdi_ref = None
+                if sr_ref is not None:
+                    printout("DESTROY NVME SR")
+                    StorageHandlerUtil.destroy_sr(self.session, sr_ref)
+                    checkpoint += 1
+                    sr_ref = None
+            except Exception as e:
+                printout("- Could not cleanup automatically. Exception: %s" % str(e))
+                display_operation_status(False)
+                retval = False
+        xencert_print("Checkpoints: %d, total_checkpoints: %s" % (checkpoint, total_checkpoints))
+        return (retval, checkpoint, total_checkpoints, skipped)
+
+    def __del__(self):
+        xencert_print("Reached StorageHandlerNVme destructor")
+        StorageHandler.__del__(self)
 
 def get_storage_handler(g_storage_conf):
     # Factory method to instantiate the correct handler
     if g_storage_conf["storage_type"] == "iscsi":
         return StorageHandlerISCSI(g_storage_conf)
 
-    if g_storage_conf["storage_type"] in ["hba", "fcoe"]:
+    if g_storage_conf["storage_type"] == "hba":
         return StorageHandlerHBA(g_storage_conf)
 
     if g_storage_conf["storage_type"] == "nfs":
@@ -3376,5 +3668,8 @@ def get_storage_handler(g_storage_conf):
 
     if g_storage_conf["storage_type"] == "cifs":
         return StorageHandlerCIFS(g_storage_conf)
+    
+    if g_storage_conf["storage_type"] == "nvme":
+        return StorageHandlerNVMe(g_storage_conf)
 
     return None

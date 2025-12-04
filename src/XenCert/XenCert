@@ -75,7 +75,7 @@ def main():
     if not options.functional and not options.control and not options.multipath and not options.pool and not options.data and not options.metadata:
         testAll = True
     
-    if options.multipath or testAll:
+    if (options.multipath or testAll) and options.storage_type != 'nvme':
         printout("Performing multipath configuration verification.")
         (retValMP, checkPointsMP, totalCheckPointsMP) = handler.mp_config_verification_tests()
         if checkPointsMP != totalCheckPointsMP:
@@ -83,6 +83,9 @@ def main():
         printout("***********************************************************************")
         timeOfCompletionMP = time.asctime(time.localtime())
     else:
+        if options.multipath and options.storage_type == 'nvme':
+            printout("Skipping multipath configuration verification: not supported for NVMe.")
+            printout("***********************************************************************")
         retValMP = None
         checkPointsMP = 0
         totalCheckPointsMP = 1
