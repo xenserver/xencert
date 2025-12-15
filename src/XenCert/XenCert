@@ -111,8 +111,8 @@ def main():
 
     if options.functional or testAll: 
         printout("Performing functional tests.")
-        (retValFunctional, checkPointsFunctional, totalCheckPointsFunctional) = handler.functional_tests()
-        if checkPointsFunctional != checkPointsFunctional:
+        (retValFunctional, checkPointsFunctional, totalCheckPointsFunctional, skippedFunctional) = handler.functional_tests()
+        if checkPointsFunctional != totalCheckPointsFunctional:
             pass_all = False
         printout("***********************************************************************")
         timeOfCompletionFunctional = time.asctime(time.localtime())
@@ -120,7 +120,7 @@ def main():
     if options.data or testAll: 
         printout("Performing data IO tests.")
         (retValData, checkPointsData, totalCheckPointsData) = handler.data_integrity_tests()
-        if checkPointsData != checkPointsData:
+        if checkPointsData != totalCheckPointsData:
             pass_all = False
         printout("***********************************************************************")
         timeOfCompletionData = time.asctime(time.localtime())
@@ -135,29 +135,29 @@ def main():
     if options.multipath or testAll:
         printout("***********************************************************************")
         XenCertCommon.show_report('Multipath configuration verification results', retValMP, checkPointsMP, totalCheckPointsMP,
-                   timeOfCompletionMP)
+                   time=timeOfCompletionMP)
 
     if options.control or testAll:
         printout("***********************************************************************")
         XenCertCommon.show_report('Control path stress test results', retValControl, checkPointsControl, totalCheckPointsControl,
-                   timeOfCompletionControl)
+                   time=timeOfCompletionControl)
 
     if options.pool or testAll:
         printout("***********************************************************************")
-        XenCertCommon.show_report('Pool test results', retValPool, checkPointsPool, totalCheckPointsPool, timeOfCompletionPool)
+        XenCertCommon.show_report('Pool test results', retValPool, checkPointsPool, totalCheckPointsPool, time=timeOfCompletionPool)
 
     if options.functional or testAll:
         printout("***********************************************************************")
         XenCertCommon.show_report('Functional test results', retValFunctional, checkPointsFunctional, totalCheckPointsFunctional,
-                   timeOfCompletionFunctional)
+                   skippedFunctional, time=timeOfCompletionFunctional)
 
     if options.data or testAll:         
         printout("***********************************************************************")
-        XenCertCommon.show_report('Data test results', retValData, checkPointsData, totalCheckPointsData, timeOfCompletionData)
+        XenCertCommon.show_report('Data test results', retValData, checkPointsData, totalCheckPointsData, time=timeOfCompletionData)
         
     if options.metadata:
         printout("***********************************************************************")
-        XenCertCommon.show_report('Metadata test results', retValMetadata, checkPointsMetaData, totalCheckPointsMetaData, timeOfCompletionMetadata)
+        XenCertCommon.show_report('Metadata test results', retValMetadata, checkPointsMetaData, totalCheckPointsMetaData, time=timeOfCompletionMetadata)
 
     printout("***********************************************************************")
     printout("End of XenCert certification suite.")
