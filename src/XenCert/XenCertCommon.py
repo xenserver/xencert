@@ -25,6 +25,7 @@ HIDDEN_PASSWORD = '*' * 8
 
 TAG_PASS = "[PASS]"
 TAG_FAIL = "[FAIL]"
+TAG_SKIP = "[SKIP]"
 
 # argument format:
 #  keyword
@@ -265,6 +266,15 @@ def hide_path_info_password(path_info, delimiter=':', password_index=2):
         info_list[password_index] = HIDDEN_PASSWORD
     return delimiter.join(info_list)
 
-def show_report(msg, result, checkpoints=1, total_checkpoints=1, time=0):
+def show_report(msg, result, checkpoints=1, total_checkpoints=1, skipped=0, time=0):
+    effective_total = total_checkpoints - skipped
+
+    if effective_total <= 0:
+        status = TAG_SKIP
+        percent = 0 
+    else:
+        status = TAG_PASS if result else TAG_FAIL
+        percent = int((checkpoints * 100) / effective_total)
+
     printout("%-50s: %s, Pass percentage: %d, Completed: %s" %
-          (msg, TAG_PASS if result else TAG_FAIL, int((checkpoints * 100) / total_checkpoints), time))
+             (msg, status, percent, time))

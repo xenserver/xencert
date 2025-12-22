@@ -2144,6 +2144,7 @@ class StorageHandlerISCSI(BlockStorageHandler):
         retval = True
         checkpoint = 0
         total_checkpoints = 4
+        skipped = 0
         time_for_io_tests_in_sec = 0
         wildcard = False
 
@@ -2302,6 +2303,8 @@ class StorageHandlerISCSI(BlockStorageHandler):
                         # If this is a root device then skip IO tests for this device.
                         if os.path.realpath(util.getrootdev()) == tuple[2]:
                             printout("     -> Skipping IO tests on device %s, as it is the root device." % tuple[2])
+                            printout("                                                                                                   SKIP [Completed]")
+                            skipped += 1
                             continue
                         
                         path_no += 1
@@ -2359,7 +2362,7 @@ class StorageHandlerISCSI(BlockStorageHandler):
         xencert_print("Checkpoints: %d, total_checkpoints: %s  " % (checkpoint, total_checkpoints))
         xencert_print("Leaving StorageHandlerISCSI functional_tests")
 
-        return (retval, checkpoint, total_checkpoints)
+        return (retval, checkpoint, total_checkpoints, skipped)
     
     def __del__(self):
         xencert_print("Reached StorageHandlerISCSI destructor")
@@ -2468,6 +2471,7 @@ class StorageHandlerHBA(BlockStorageHandler):
         retval = True
         checkpoint = 0
         total_checkpoints = 4
+        skipped = 0
         time_for_io_tests_in_sec = 0
         total_time_for_io_tests_in_sec = 0
         scsi_id_list = self.storage_conf['scsiIDs'].split(",")
@@ -2532,10 +2536,12 @@ class StorageHandlerHBA(BlockStorageHandler):
                         root_found = False
                         for lun in list_lun_info:
                             if lun['device'] == os.path.realpath(util.getrootdev()):
-                                xencert_print("Skipping host id %s with root device %s " % (map['id'], lun['device']))
+                                printout("Skipping host id %s with root device %s " % (map['id'], lun['device']))
+                                printout("                                                                                                   SKIP [Completed]")
                                 root_found = True
                                 break
-                        if root_found == True: 
+                        if root_found == True:
+                            skipped += 1
                             continue
 
                         xencert_print("Got LUN information for host id %s as %s" % (map['id'], list_lun_info))
@@ -2661,6 +2667,8 @@ class StorageHandlerHBA(BlockStorageHandler):
                         # If this is a root device then skip IO tests for this device.
                         if os.path.realpath(util.getrootdev()) == device:
                             printout("     -> Skipping IO tests on device %s, as it is the root device." % device)
+                            printout("                                                                                                   SKIP [Completed]")
+                            skipped += 1
                             continue
 
                         path_no += 1
@@ -2708,7 +2716,7 @@ class StorageHandlerHBA(BlockStorageHandler):
         xencert_print("Checkpoints: %d, total_checkpoints: %s  " % (checkpoint, total_checkpoints))
         xencert_print("Leaving StorageHandlerHBA functional_tests")
 
-        return (retval, checkpoint, total_checkpoints)
+        return (retval, checkpoint, total_checkpoints, skipped)
 
     def __del__(self):
         xencert_print("Reached StorageHandlerHBA destructor")
@@ -2808,6 +2816,7 @@ class StorageHandlerNFS(StorageHandler):
         retval = True
         checkpoints = 0
         total_checkpoints = 0
+        skipped = 0
         test_file_created = False
         test_dir_create = False
         mount_created = False
@@ -2871,7 +2880,7 @@ class StorageHandlerNFS(StorageHandler):
             except Exception as e:
                 printout("   - Failed to cleanup after NFS functional tests, please delete the following manually: %s, %s, %s. Exception: %s" % (testfile, testdir, mountpoint, str(e)))
 
-        return (retval, checkpoints, total_checkpoints)
+        return (retval, checkpoints, total_checkpoints, skipped)
 
     def control_path_stress_tests(self):
         sr_ref = None 
@@ -3004,6 +3013,7 @@ class StorageHandlerCIFS(StorageHandler):
         sr_ref = None
         checkpoints = 0
         total_checkpoints = 0
+        skipped = 0
         test_file_created = False
         test_dir_create = False
         test_sr_created = False
@@ -3066,7 +3076,7 @@ class StorageHandlerCIFS(StorageHandler):
             except Exception as e:
                 printout("   - Failed to cleanup after CIFS functional tests, please delete the following manually: %s, %s, %s(sr). Exception: %s" % (testfile, testdir, self.session.xenapi.SR.get_uuid(sr_ref), str(e)))
 
-        return (retval, checkpoints, total_checkpoints)
+        return (retval, checkpoints, total_checkpoints, skipped)
 
     def control_path_stress_tests(self):
         sr_ref = None
