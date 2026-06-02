@@ -342,41 +342,31 @@ Subsequently, the paths can be brought online as follows:
 
 ##### HBA storage type  
 
-The scripts to block and unblock paths for HBA storage type would be vendor specific. A sample script to bring down a qlogic port has been pasted below: 
+The scripts to block and unblock paths for HBA storage type would be vendor specific. The switch is accessed over SSH, using `sshpass` to supply the password non-interactively. A sample script to bring down a qlogic port has been pasted below: 
 ```
     #!/bin/bash
-    ( echo open <qlogic switch name>
-     sleep 5
-     echo <switch username>
-     sleep 1
-     echo <switch password>
-     sleep 1
-     echo admin start
-     sleep 1
-     echo set port <Post number> state offline
-     sleep 1
-     echo admin stop
-     sleep 1
-     echo quit
-    ) | telnet
+    ( echo "admin start";                        sleep 1
+      echo "set port <Port number> state offline"; sleep 1
+      echo "admin stop";                         sleep 1
+      echo "quit"
+    ) | sshpass -p <switch password> ssh -tt -o StrictHostKeyChecking=no \
+                                             -o UserKnownHostsFile=/dev/null \
+                                             -o HostKeyAlgorithms=+ssh-rsa,rsa-sha2-256,rsa-sha2-512 \
+                                             -o ConnectTimeout=10 \
+                                             <switch username>@<qlogic switch name>
 
     Similarly to bring a path back up use:
 
     #!/bin/bash
-    ( echo open <qlogic switch name>
-      sleep 5
-      echo <switch username>
-      sleep 1
-      echo <switch password>
-      sleep 1
-      echo admin start
-      sleep 1
-      echo set port <Post number> state online
-      sleep 1
-      echo admin stop
-      sleep 1
-      echo quit
-     ) | telnet  
+    ( echo "admin start";                       sleep 1
+      echo "set port <Port number> state online"; sleep 1
+      echo "admin stop";                        sleep 1
+      echo "quit"
+    ) | sshpass -p <switch password> ssh -tt -o StrictHostKeyChecking=no \
+                                             -o UserKnownHostsFile=/dev/null \
+                                             -o HostKeyAlgorithms=+ssh-rsa,rsa-sha2-256,rsa-sha2-512 \
+                                             -o ConnectTimeout=10 \
+                                             <switch username>@<qlogic switch name>
 ```
 
 ### Appendix B-Notes on storage discovery  
@@ -657,62 +647,40 @@ blockunblockHBAport.sh ip username password port portenable
 5.Set the ‘/xencert/block-unblock-over’ entry in XenStore to ‘1’ and exit.   
 
 ##### blockunblockHBAport.sh.brocade
-This sample script telnets to a brocade switch and brings ports up or down. The script is packaged with the kit, and looks like:
+This sample script connects to a brocade switch over SSH and brings ports up or down. The script is packaged with the kit, and looks like:
 ```
 #!/bin/bash
-( echo open ${1}
-  sleep 5
-  echo ${2}
-  sleep 1
-  echo ${3}
-  sleep 1
-  echo ${5} ${4}
-  sleep 1
-  sleep 1
-  echo exit 
- ) | telnet
+sshpass -p "${3}" ssh -o StrictHostKeyChecking=no \
+                      -o UserKnownHostsFile=/dev/null \
+                      -o HostKeyAlgorithms=+ssh-rsa,rsa-sha2-256,rsa-sha2-512 \
+                      -o ConnectTimeout=10 \
+                      "${2}@${1}" "${5} ${4}"
 ```
 ##### blockunblockHBAport.sh.qlogic
-This sample script telnets to a QLogic SANbox switch and brings ports up or down. The script is packaged with the kit, and looks like:
+This sample script connects to a QLogic SANbox switch over SSH and brings ports up or down. The script is packaged with the kit, and looks like:
 
         #!/bin/bash
-        ( echo open ${1}
-          sleep 5
-          echo ${2}
-          sleep 1
-          echo ${3}
-          sleep 1
-          echo admin start
-          sleep 1
-          echo set port ${4} state ${5}
-          sleep 1
-          echo admin stop
-          sleep 1
-          echo quit 
-         ) | telnet
+        ( echo "admin start";              sleep 1
+          echo "set port ${4} state ${5}"; sleep 1
+          echo "admin stop";               sleep 1
+          echo "quit"
+        ) | sshpass -p "${3}" ssh -tt -o StrictHostKeyChecking=no \
+                                      -o UserKnownHostsFile=/dev/null \
+                                      -o HostKeyAlgorithms=+ssh-rsa,rsa-sha2-256,rsa-sha2-512 \
+                                      -o ConnectTimeout=10 \
+                                      "${2}@${1}"
 
 
 ##### blockunblockHBAport.sh.cisco  
 
-This sample script telnets to a cisco switch and brings ports up or down. The script is packaged with the kit, and looks like:  
+This sample script connects to a cisco switch over SSH and brings ports up or down. The script is packaged with the kit, and looks like:  
 
          #!/bin/bash
-         ( echo open ${1}
-           sleep 5
-           echo ${2}
-           sleep 1
-           echo ${3}
-           sleep 1
-           echo config t
-           sleep 1
-           echo int fc1/${4}
-           sleep 1
-           echo ${5}
-           sleep 1
-           cho exit
-          sleep 1
-           echo quit 
-          ) | telnet  
+         sshpass -p "${3}" ssh -o StrictHostKeyChecking=no \
+                               -o UserKnownHostsFile=/dev/null \
+                               -o HostKeyAlgorithms=+ssh-rsa,rsa-sha2-256,rsa-sha2-512 \
+                               -o ConnectTimeout=10 \
+                               "${2}@${1}" "configure terminal ; interface fc1/${4} ; ${5} ; end"
 
  
 

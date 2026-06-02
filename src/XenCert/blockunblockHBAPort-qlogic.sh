@@ -16,18 +16,18 @@
 # along with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-( echo open ${1}
-  sleep 5
-  echo ${2}
-  sleep 1
-  echo ${3}
-  sleep 1
-  echo admin start
-  sleep 1
-  echo set port ${4} state ${5}
-  sleep 1
-  echo admin stop
-  sleep 1
-  echo quit 
- ) | telnet
+# Log in to the switch over SSH (username on the command line, password via
+# sshpass) and feed the admin commands one at a time. "ssh -tt" forces a tty so
+# the switch CLI behaves interactively, and the sleeps give it time to process
+# each command (notably the admin start/stop transitions). ${4} is the port
+# number and ${5} is the port state (online/offline).
+( echo "admin start";              sleep 1
+  echo "set port ${4} state ${5}"; sleep 1
+  echo "admin stop";               sleep 1
+  echo "quit"
+) | sshpass -p "${3}" ssh -tt -o StrictHostKeyChecking=no \
+                              -o UserKnownHostsFile=/dev/null \
+                              -o HostKeyAlgorithms=+ssh-rsa,rsa-sha2-256,rsa-sha2-512 \
+                              -o ConnectTimeout=10 \
+                              "${2}@${1}"
 

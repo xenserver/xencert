@@ -1,0 +1,7 @@
+# These helper scripts execute in XenServer Dom0 (Linux). A CRLF line ending
+# corrupts the shebang (env: 'python3\r': No such file or directory), so they
+# must always be checked out with LF endings regardless of platform.
+*.sh                        text eol=lf
+*.py                        text eol=lf
+src/XenCert/XenCert         text eol=lf
+src/XenCert/blockunblock*   text eol=lf

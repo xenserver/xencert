@@ -58,7 +58,9 @@ portList = sys.argv[3].split(':')[3].split(',')
 sampled_portlist = portList
 
 if op == 'block':
-    sampled_portlist = random.sample(portList, random.randint(1, len(portList) - 1))
+    # Block a random subset; keep at least one port up when several are given.
+    # max(1, ...) also allows a single-port list (one HBA per switch, dual-fabric).
+    sampled_portlist = random.sample(portList, random.randint(1, max(1, len(portList) - 1)))
     xencert_print("Blocking ports: %s" % sampled_portlist)
     retVal=ip + ':' + username + ':' + password + ':'
 
