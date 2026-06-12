@@ -16,15 +16,12 @@
 # along with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-( echo open ${1}
-  sleep 5
-  echo ${2}
-  sleep 1
-  echo ${3}
-  sleep 1
-  echo ${5} ${4}
-  sleep 1
-  sleep 1
-  echo exit 
- ) | telnet
+# Log in to the switch over SSH (username on the command line, password via
+# sshpass) and run the port enable/disable command. ${5} is portdisable/
+# portenable and ${4} is the port number.
+sshpass -p "${3}" ssh -o StrictHostKeyChecking=no \
+                      -o UserKnownHostsFile=/dev/null \
+                      -o HostKeyAlgorithms=+ssh-rsa,rsa-sha2-256,rsa-sha2-512 \
+                      -o ConnectTimeout=10 \
+                      "${2}@${1}" "${5} ${4}"
 
